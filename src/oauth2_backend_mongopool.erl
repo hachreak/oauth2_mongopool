@@ -57,7 +57,6 @@
          authenticate_client/2,
          authenticate_user/2,
          get_client_identity/2,
-         get_redirection_uri/2,
          resolve_access_code/2,
          resolve_access_token/2,
          resolve_refresh_token/2,
@@ -319,13 +318,6 @@ revoke_access_token(AccessToken, AppCtx) ->
   mongopool_app:delete(eshpool, ?ACCESS_TOKEN_TABLE,
                    #{<<"token">> => AccessToken}),
   {error, AppCtx}.
-
-get_redirection_uri(ClientId, AppCtx) ->
-  case get_client(ClientId) of
-    {ok, #{<<"redirect_uri">> := RedirectUri}} ->
-      {ok, {AppCtx, RedirectUri}};
-    {error, ErrorType} -> {error, ErrorType}
-  end.
 
 -spec get_client_identity(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
