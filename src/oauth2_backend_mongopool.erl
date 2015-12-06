@@ -78,6 +78,15 @@
 -define(ACCESS_TOKEN_TABLE, access_tokens).
 -define(REFRESH_TOKEN_TABLE, refresh_tokens).
 
+%%%_ * Types -----------------------------------------------------------
+
+-type user()     :: oauth2:user().
+-type appctx()   :: oauth2:appctx().
+-type client()   :: oauth2:client().
+-type token()    :: oauth2:token().
+-type grantctx() :: oauth2:grantctx().
+-type scope()    :: oauth2:scope().
+
 % API implementation
 
 stop() ->
@@ -208,6 +217,8 @@ get_client(ClientId) ->
 
 %%% Oauth2 Backend API implementation
 
+-spec authenticate_user(user(), appctx()) ->
+  {ok, {appctx(), term()}} | {error, notfound | badpass}.
 authenticate_user({Username, Password}, AppCtx) ->
   try
     case get_resowner(Username) of
@@ -220,6 +231,8 @@ authenticate_user({Username, Password}, AppCtx) ->
     user_not_found -> {error, not_found}
   end.
 
+-spec authenticate_client(client(), appctx()) ->
+  {ok, {appctx(), client()}} | {error, notfound | badsecret}.
 authenticate_client({ClientId, ClientSecret}, AppCtx) ->
   case get_client(ClientId) of
     {ok, #{<<"client_secret">> := ClientSecret}=Identity} ->
@@ -230,24 +243,32 @@ authenticate_client({ClientId, ClientSecret}, AppCtx) ->
       {error, ErrorType}
   end.
 
+-spec associate_refresh_token(token(), grantctx(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
 associate_refresh_token(RefreshToken, Context, AppCtx) ->
   mongopool_app:insert(eshpool, ?REFRESH_TOKEN_TABLE,
                    #{<<"_id">> => RefreshToken, <<"token">> => RefreshToken,
                      <<"grant">> => Context}),
   {ok, AppCtx}.
 
+-spec associate_access_code(token(), grantctx(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
 associate_access_code(AccessCode, Context, AppCtx) ->
   mongopool_app:insert(eshpool, ?ACCESS_CODE_TABLE,
                    #{<<"_id">> => AccessCode, <<"token">> => AccessCode,
                      <<"grant">> => Context}),
   {ok, AppCtx}.
 
+-spec associate_access_token(token(), grantctx(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
 associate_access_token(AccessToken, Context, AppCtx) ->
   mongopool_app:insert(eshpool, ?ACCESS_TOKEN_TABLE,
                    #{<<"_id">> => AccessToken, <<"token">> => AccessToken,
                      <<"grant">> => Context}),
   {ok, AppCtx}.
 
+-spec resolve_refresh_token(token(), appctx()) ->
+  {ok, {appctx(), grantctx()}} | {error, notfound}.
 resolve_refresh_token(RefreshToken, AppCtx) ->
   case mongopool_app:find_one(eshpool, ?REFRESH_TOKEN_TABLE,
                           #{<<"token">> => RefreshToken}) of
@@ -256,6 +277,8 @@ resolve_refresh_token(RefreshToken, AppCtx) ->
     #{} -> {error, not_found}
   end.
 
+-spec resolve_access_code(token(), appctx()) ->
+  {ok, {appctx(), grantctx()}} | {error, notfound}.
 resolve_access_code(AccessCode, AppCtx) ->
   case mongopool_app:find_one(eshpool, ?ACCESS_CODE_TABLE,
                           #{<<"token">> => AccessCode}) of
@@ -266,6 +289,8 @@ resolve_access_code(AccessCode, AppCtx) ->
     #{} -> {error, not_found}
   end.
 
+-spec resolve_access_token(token(), appctx()) ->
+  {ok, {appctx(), grantctx()}} | {error, notfound}.
 resolve_access_token(AccessToken, AppCtx) ->
   case mongopool_app:find_one(eshpool, ?ACCESS_TOKEN_TABLE,
                           #{<<"token">> => AccessToken}) of
@@ -274,16 +299,22 @@ resolve_access_token(AccessToken, AppCtx) ->
     #{} -> {error, not_found}
   end.
 
+-spec revoke_refresh_token(token(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
 revoke_refresh_token(RefreshToken, AppCtx) ->
   mongopool_app:delete(eshpool, ?REFRESH_TOKEN_TABLE,
                    #{<<"token">> => RefreshToken}),
   {ok, AppCtx}.
 
+-spec revoke_access_code(token(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
 revoke_access_code(AccessCode, AppCtx) ->
   mongopool_app:delete(eshpool, ?ACCESS_CODE_TABLE,
                    #{<<"token">> => AccessCode}),
   {ok, AppCtx}.
 
+-spec revoke_access_token(token(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
 revoke_access_token(AccessToken, AppCtx) ->
   mongopool_app:delete(eshpool, ?ACCESS_TOKEN_TABLE,
                    #{<<"token">> => AccessToken}),
@@ -296,27 +327,43 @@ get_redirection_uri(ClientId, AppCtx) ->
     {error, ErrorType} -> {error, ErrorType}
   end.
 
+-spec get_client_identity(client(), appctx()) ->
+  {ok, {appctx(), client()}} | {error, notfound | badsecret}.
 get_client_identity(ClientId, AppCtx) ->
+  % FIXME return badsecret
+  % FIXME use client object instead of client id
   case get_client(ClientId) of
     {ok, #{<<"client_id">> := ClientId}=Identity} ->
       {ok, {AppCtx, Identity#{<<"client_secret">> => undefined}}};
     {error, ErrorType} -> {error, ErrorType}
   end.
 
+-spec verify_redirection_uri(client(), binary(), appctx()) ->
+  {ok, appctx()} | {error, notfound | baduri}.
 verify_redirection_uri(Client, ClientUri, AppCtx) ->
+  % FIXME errors check
   RedirectUri = maps:get(<<"redirect_uri">>, Client),
   case ClientUri of
     RedirectUri -> {ok, {AppCtx, RedirectUri}};
     _Error -> {error, mismatch}
   end.
 
+-spec verify_client_scope(client(), scope(), appctx()) ->
+  {ok, {appctx(), scope()}} | {error, notfound | badscope}.
 verify_client_scope(#{<<"scope">> := RegisteredScope}, Scope, AppCtx) ->
+  % FIXME errors check
   verify_scope(RegisteredScope, Scope, AppCtx).
 
+-spec verify_resowner_scope(term(), scope(), appctx()) ->
+  {ok, {appctx(), scope()}} | {error, notfound | badscope}.
 verify_resowner_scope(#{<<"scope">> := RegisteredScope}, Scope, AppCtx) ->
+  % FIXME errors check
   verify_scope(RegisteredScope, Scope, AppCtx).
 
+-spec verify_scope(scope(), scope(), appctx()) ->
+  {ok, {appctx(), scope()}} | {error, notfound | badscope}.
 verify_scope(RegisteredScope, undefined, AppCtx) ->
+  % FIXME errors check
   {ok, {AppCtx, RegisteredScope}};
 verify_scope(_RegisteredScope, [], AppCtx) ->
   {ok, {AppCtx, []}};
