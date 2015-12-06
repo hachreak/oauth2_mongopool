@@ -270,7 +270,7 @@ associate_access_token(AccessToken, Context, AppCtx) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
 resolve_refresh_token(RefreshToken, AppCtx) ->
   case mongopool_app:find_one(eshpool, ?REFRESH_TOKEN_TABLE,
-                          #{<<"token">> => RefreshToken}) of
+                              #{<<"token">> => RefreshToken}) of
     #{<<"token">> := RefreshToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
     #{} -> {error, notfound}
@@ -302,21 +302,21 @@ resolve_access_token(AccessToken, AppCtx) ->
   {ok, appctx()} | {error, notfound}.
 revoke_refresh_token(RefreshToken, AppCtx) ->
   mongopool_app:delete(eshpool, ?REFRESH_TOKEN_TABLE,
-                   #{<<"token">> => RefreshToken}),
+                       #{<<"token">> => RefreshToken}),
   {ok, AppCtx}.
 
 -spec revoke_access_code(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
 revoke_access_code(AccessCode, AppCtx) ->
   mongopool_app:delete(eshpool, ?ACCESS_CODE_TABLE,
-                   #{<<"token">> => AccessCode}),
+                       #{<<"token">> => AccessCode}),
   {ok, AppCtx}.
 
 -spec revoke_access_token(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
 revoke_access_token(AccessToken, AppCtx) ->
   mongopool_app:delete(eshpool, ?ACCESS_TOKEN_TABLE,
-                   #{<<"token">> => AccessToken}),
+                       #{<<"token">> => AccessToken}),
   {error, AppCtx}.
 
 -spec get_client_identity(client(), appctx()) ->
@@ -332,13 +332,12 @@ get_client_identity(ClientId, AppCtx) ->
 
 -spec verify_redirection_uri(client(), binary(), appctx()) ->
   {ok, appctx()} | {error, notfound | baduri}.
-verify_redirection_uri(Client, ClientUri, AppCtx) ->
-  % FIXME errors check
-  RedirectUri = maps:get(<<"redirect_uri">>, Client),
-  case ClientUri of
-    RedirectUri -> {ok, {AppCtx, RedirectUri}};
-    _Error -> {error, mismatch}
-  end.
+verify_redirection_uri(#{redirect_uri := ClientUri}, ClientUri, AppCtx) ->
+  {ok, {AppCtx, ClientUri}};
+verify_redirection_uri(#{redirect_uri := <<>>}, _ClientUri, _AppCtx) ->
+  {error, baduri};
+verify_redirection_uri(#{redirect_uri := _WrongUri}, _ClientUri, _AppCtx) ->
+  {error, baduri}.
 
 -spec verify_client_scope(client(), scope(), appctx()) ->
   {ok, {appctx(), scope()}} | {error, notfound | badscope}.
