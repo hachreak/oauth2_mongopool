@@ -273,7 +273,7 @@ resolve_refresh_token(RefreshToken, AppCtx) ->
                           #{<<"token">> => RefreshToken}) of
     #{<<"token">> := RefreshToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
-    #{} -> {error, not_found}
+    #{} -> {error, notfound}
   end.
 
 -spec resolve_access_code(token(), appctx()) ->
@@ -285,7 +285,7 @@ resolve_access_code(AccessCode, AppCtx) ->
       io:format("resolve_access_code: ~p~n",
                 [eshc_utils:dbMap2OAuth2List(Grant)]),
       {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
-    #{} -> {error, not_found}
+    #{} -> {error, notfound}
   end.
 
 -spec resolve_access_token(token(), appctx()) ->
@@ -295,7 +295,7 @@ resolve_access_token(AccessToken, AppCtx) ->
                           #{<<"token">> => AccessToken}) of
     #{<<"token">> := AccessToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
-    #{} -> {error, not_found}
+    #{} -> {error, notfound}
   end.
 
 -spec revoke_refresh_token(token(), appctx()) ->
