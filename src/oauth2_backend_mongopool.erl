@@ -224,7 +224,7 @@ authenticate_user({Username, Password}, AppCtx) ->
       {ok, #{<<"password">> := Password} = Identity} ->
         {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
       {ok, #{<<"password">> := _WrongPassword}} ->
-        {error, "Wrong password"}
+        {error, badpass}
     end
   catch
     user_not_found -> {error, not_found}
