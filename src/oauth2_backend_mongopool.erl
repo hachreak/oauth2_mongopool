@@ -204,14 +204,14 @@ delete_client(Id) ->
 get_resowner(Username) ->
   case mongopool_app:find_one(eshpool, ?USER_TABLE, #{<<"_id">> => Username}) of
     #{<<"_id">> := Username}=User -> {ok, User};
-    #{} -> throw(user_not_found)
+    #{} -> throw(notfound)
   end.
 
 get_client(ClientId) ->
   case mongopool_app:find_one(eshpool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
     #{<<"_id">> := ClientId}=Client -> {ok, Client};
     % TODO return throw(client_not_found)? (see also authenticate_client)
-    #{} -> {error, not_found}
+    #{} -> {error, notfound}
   end.
 
 %%% Oauth2 Backend API implementation
@@ -227,7 +227,7 @@ authenticate_user({Username, Password}, AppCtx) ->
         {error, badpass}
     end
   catch
-    user_not_found -> {error, not_found}
+    not_found -> {error, notfound}
   end.
 
 -spec authenticate_client(client(), appctx()) ->
@@ -237,7 +237,7 @@ authenticate_client({ClientId, ClientSecret}, AppCtx) ->
     {ok, #{<<"client_secret">> := ClientSecret}=Identity} ->
       {ok, {AppCtx, Identity#{<<"client_secret">> := undefined}}};
     {ok, #{<<"client_secret">> := _WrongClientSecret}} ->
-      {error, "Wrong client secret"};
+      {error, badsecret};
     {error, ErrorType} ->
       {error, ErrorType}
   end.
