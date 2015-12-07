@@ -354,18 +354,15 @@ verify_resowner_scope(#{<<"scope">> := RegisteredScope}, Scope, AppCtx) ->
 -spec verify_scope(scope(), scope(), appctx()) ->
   {ok, {appctx(), scope()}} | {error, notfound | badscope}.
 verify_scope(RegisteredScope, undefined, AppCtx) ->
-  % FIXME errors check
   {ok, {AppCtx, RegisteredScope}};
 verify_scope(_RegisteredScope, [], AppCtx) ->
   {ok, {AppCtx, []}};
 verify_scope([], _Scope, _AppContext) ->
-  {error, invalid_scope};
+  {error, badscope};
 verify_scope(RegisteredScope, Scope, AppCtx) ->
   io:format("verify_scope: ~p ~p~n", [RegisteredScope, Scope]),
   case oauth2_priv_set:is_subset(oauth2_priv_set:new(RegisteredScope),
                                  oauth2_priv_set:new(Scope)) of
-    true ->
-      {ok, {AppCtx, Scope}};
-    false ->
-      {error, badscope}
+    true -> {ok, {AppCtx, Scope}};
+    false -> {error, badscope}
   end.
