@@ -100,9 +100,7 @@ start() ->
 -spec is_authorized(oauth2:auth(), fun()) ->
   list() | no_return().
 % TODO can be improved?
-is_authorized(AccessToken, GetObjectScope)
-  when is_function(GetObjectScope) ->
-  % TODO add testsuite.
+is_authorized(AccessToken, GetObjectScope) when is_function(GetObjectScope) ->
   case oauth2:verify_access_token(AccessToken, undefined) of
     {ok, {_AppContext, GrantCtx}} ->
       case lists:keyfind(<<"scope">>, 1, GrantCtx) of
@@ -272,7 +270,7 @@ resolve_refresh_token(RefreshToken, AppCtx) ->
   case mongopool_app:find_one(eshpool, ?REFRESH_TOKEN_TABLE,
                               #{<<"token">> => RefreshToken}) of
     #{<<"token">> := RefreshToken, <<"grant">> := Grant} ->
-      {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
+      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
     #{} -> {error, notfound}
   end.
 
@@ -283,8 +281,8 @@ resolve_access_code(AccessCode, AppCtx) ->
                           #{<<"token">> => AccessCode}) of
     #{<<"token">> := AccessCode, <<"grant">> := Grant} ->
       io:format("resolve_access_code: ~p~n",
-                [eshc_utils:dbMap2OAuth2List(Grant)]),
-      {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
+                [oauth2_mongopool_utils:dbMap2OAuth2List(Grant)]),
+      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
     #{} -> {error, notfound}
   end.
 
@@ -294,7 +292,7 @@ resolve_access_token(AccessToken, AppCtx) ->
   case mongopool_app:find_one(eshpool, ?ACCESS_TOKEN_TABLE,
                           #{<<"token">> => AccessToken}) of
     #{<<"token">> := AccessToken, <<"grant">> := Grant} ->
-      {ok, {AppCtx, eshc_utils:dbMap2OAuth2List(Grant)}};
+      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
     #{} -> {error, notfound}
   end.
 
