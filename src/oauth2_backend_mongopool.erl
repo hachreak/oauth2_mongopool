@@ -105,7 +105,7 @@ is_authorized(AccessToken, GetObjectScope) when is_function(GetObjectScope) ->
     {ok, {_AppContext, GrantCtx}} ->
       case lists:keyfind(<<"scope">>, 1, GrantCtx) of
         {<<"scope">>, PermittedScope} ->
-          case esh_oauth2_backend:verify_scope(
+          case verify_scope(
                  PermittedScope, GetObjectScope(GrantCtx), undefined) of
             {ok, {_AppContext2, _VerifiedScope}} -> GrantCtx;
             {error, _ErrorType} -> throw(not_authorized)
