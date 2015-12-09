@@ -243,25 +243,26 @@ authenticate_client({ClientId, ClientSecret}, AppCtx) ->
 -spec associate_refresh_token(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
 associate_refresh_token(RefreshToken, Context, AppCtx) ->
-  mongopool_app:insert(eshpool, ?REFRESH_TOKEN_TABLE,
-                   #{<<"_id">> => RefreshToken, <<"token">> => RefreshToken,
-                     <<"grant">> => Context}),
+  mongopool_app:insert(
+    eshpool, ?REFRESH_TOKEN_TABLE,
+    #{<<"_id">> => RefreshToken, <<"token">> => RefreshToken,
+      <<"grant">> => Context}),
   {ok, AppCtx}.
 
 -spec associate_access_code(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
 associate_access_code(AccessCode, Context, AppCtx) ->
   mongopool_app:insert(eshpool, ?ACCESS_CODE_TABLE,
-                   #{<<"_id">> => AccessCode, <<"token">> => AccessCode,
-                     <<"grant">> => Context}),
+                       #{<<"_id">> => AccessCode, <<"token">> => AccessCode,
+                         <<"grant">> => Context}),
   {ok, AppCtx}.
 
 -spec associate_access_token(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
 associate_access_token(AccessToken, Context, AppCtx) ->
   mongopool_app:insert(eshpool, ?ACCESS_TOKEN_TABLE,
-                   #{<<"_id">> => AccessToken, <<"token">> => AccessToken,
-                     <<"grant">> => Context}),
+                       #{<<"_id">> => AccessToken, <<"token">> => AccessToken,
+                         <<"grant">> => Context}),
   {ok, AppCtx}.
 
 -spec resolve_refresh_token(token(), appctx()) ->
