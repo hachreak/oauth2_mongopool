@@ -35,8 +35,7 @@
 -behaviour(oauth2_backend).
 
 %%% API
--export([start/0,
-         stop/0,
+-export([
          add_client/5,
          add_resowner/4,
          add_resowner/5,
@@ -47,7 +46,6 @@
          get_resowner/2,
          delete_client/1,
          delete_resowner/1
-         % authorize_access_token/2
         ]).
 
 %%% OAuth2 backend functionality
@@ -87,13 +85,6 @@
 -type scope()    :: oauth2:scope().
 
 % API implementation
-
-stop() ->
-  ok.
-
-start() ->
-  application:ensure_all_started(mongopool),
-  {ok, initialized}.
 
 %% @doc check object authorization
 %%      if auth fail, then raise an exception not_authorized else return ok.
