@@ -37,14 +37,14 @@
 %%% API
 -export([start/0,
          stop/0,
-         add_client/4,
-         add_resowner/3,
+         add_client/5,
          add_resowner/4,
-         add_resowner_scope/2,
-         remove_resowner_scope/2,
-         get_resowner_scope/1,
-         get_client/1,
-         get_resowner/1,
+         add_resowner/5,
+         add_resowner_scope/3,
+         remove_resowner_scope/3,
+         get_resowner_scope/2,
+         get_client/2,
+         get_resowner/2,
          delete_client/1,
          delete_resowner/1
          % authorize_access_token/2
@@ -67,7 +67,7 @@
          verify_redirection_uri/3,
          verify_resowner_scope/3,
          verify_scope/3,
-         is_authorized/2
+         is_authorized/3
         ]).
 
 %%% Tables
@@ -97,17 +97,18 @@ start() ->
 
 %% @doc check object authorization
 %%      if auth fail, then raise an exception not_authorized else return ok.
--spec is_authorized(oauth2:auth(), fun()) ->
+-spec is_authorized(oauth2:auth(), fun((grantctx()) -> scope()), appctx()) ->
   list() | no_return().
 % TODO can be improved?
-is_authorized(AccessToken, GetObjectScope) when is_function(GetObjectScope) ->
-  case oauth2:verify_access_token(AccessToken, undefined) of
-    {ok, {_AppContext, GrantCtx}} ->
+is_authorized(AccessToken, GetObjectScope, AppCtx)
+  when is_function(GetObjectScope) ->
+  case oauth2:verify_access_token(AccessToken, AppCtx) of
+    {ok, {_AppCtx, GrantCtx}} ->
       case lists:keyfind(<<"scope">>, 1, GrantCtx) of
         {<<"scope">>, PermittedScope} ->
           case verify_scope(
                  PermittedScope, GetObjectScope(GrantCtx), undefined) of
-            {ok, {_AppContext2, _VerifiedScope}} -> GrantCtx;
+            {ok, {_AppCtxt, _VerifiedScope}} -> GrantCtx;
             {error, _ErrorType} -> throw(not_authorized)
           end;
         false -> throw(not_authorized)
@@ -115,70 +116,57 @@ is_authorized(AccessToken, GetObjectScope) when is_function(GetObjectScope) ->
     {error, _ErrorType} -> throw(not_authorized)
   end.
 
-get_resowner_scope(Username) ->
-  case mongopool_app:find_one(eshpool, ?USER_TABLE, #{<<"_id">> => Username}) of
-    #{<<"scope">> := Scope} -> {ok, Scope};
+get_resowner_scope(Username, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => Username}) of
+    #{<<"scope">> := Scope} -> {ok, {AppCtx, Scope}};
     #{} -> throw(not_found)
   end.
 
 % @doc add a new scope to user.
-% @end
-add_resowner_scope(Username, Scope) when is_binary(Scope) ->
-  add_resowner_scope(Username, [Scope]);
-add_resowner_scope(Username, Scope) when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(Username),
+add_resowner_scope(Username, Scope, AppCtx) when is_binary(Scope) ->
+  add_resowner_scope(Username, [Scope], AppCtx);
+add_resowner_scope(Username, Scope, #{pool := Pool}=AppCtx)
+  when is_list(Scope) ->
+  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(Username, AppCtx),
   MergedScopes = lists:umerge(CurrentScope, Scope),
-  mongopool_app:update(eshpool, ?USER_TABLE,
-                   #{<<"_id">> => Username}, {<<"$set">>, MergedScopes}).
+  mongopool_app:update(Pool, ?USER_TABLE,
+                       #{<<"_id">> => Username}, {<<"$set">>, MergedScopes}).
 
 % @doc remove a scope from user.
-% @end
-remove_resowner_scope(Username, Scope) when is_binary(Scope) ->
-  remove_resowner_scope(Username, [Scope]);
-remove_resowner_scope(Username, Scope) when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(Username),
+remove_resowner_scope(Username, Scope, AppCtx) when is_binary(Scope) ->
+  remove_resowner_scope(Username, [Scope], AppCtx);
+remove_resowner_scope(Username, Scope, #{pool := Pool}=AppCtx)
+  when is_list(Scope) ->
+  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(Username, AppCtx),
   RemovedScopes = lists:subtract(CurrentScope, Scope),
-  % FIXME update instead of insert
-  mongopool_app:update(eshpool, ?USER_TABLE,
-                   #{<<"_id">> => Username}, {<<"$set">>, RemovedScopes}).
+  mongopool_app:update(Pool, ?USER_TABLE,
+                       #{<<"_id">> => Username}, {<<"$set">>, RemovedScopes}).
 
 
--spec add_client(Id, Secret, RedirectUri, Scope) -> ok when
-    Id          :: binary(),
-    Secret      :: binary() | undefined,
-    RedirectUri :: binary(),
-    Scope       :: [binary()].
-add_client(Id, Secret, RedirectUri, Scope) ->
-  mongopool_app:insert(eshpool, ?CLIENT_TABLE, #{
+-spec add_client(binary(), binary(), binary(), oauth2:scope(), appctx()) ->
+  {ok, appctx()} | {error, term()}.
+add_client(Id, Secret, RedirectUri, Scope, #{pool := Pool}=AppCtx) ->
+  mongopool_app:insert(Pool, ?CLIENT_TABLE, #{
                     <<"_id">> => Id,
                     % TODO remove client_id?
                     <<"client_id">> => Id,
                     <<"client_secret">> => Secret,
                     <<"redirect_uri">> => RedirectUri,
                     <<"scope">> => Scope
-                   }).
+                   }),
+  {ok, AppCtx}.
 
--spec add_resowner(Username, Password, Email) ->
-  {ok, {confirmator:token(), esh_worker_user_confirm:appctx()}} |
-  {error, term()} when
-    Username :: binary(),
-    Password :: binary(),
-    Email    :: binary().
-add_resowner(Username, Password, Email) ->
+-spec add_resowner(binary(), binary(), binary(), appctx()) ->
+  {ok, appctx()} | {error, term()}.
+add_resowner(Username, Password, Email, AppCtx) ->
   add_resowner(Username, Password, Email,
-               [<< <<"users.">>/binary, Username/binary >>]),
-  ok.
+               [<< <<"users.">>/binary, Username/binary >>], AppCtx).
 
--spec add_resowner(Username, Password, Email, Scope) ->
-  {ok, {confirmator:token(), esh_worker_user_confirm:appctx()}} |
-  {error, term()} when
-    Username  :: binary(),
-    Password  :: binary(),
-    Email     :: binary(),
-    Scope     :: [binary()].
-add_resowner(Username, Password, Email, Scope) ->
+-spec add_resowner(binary(), binary(), binary(), oauth2:scope(), appctx()) ->
+  {ok, appctx()} | {error, term()}.
+add_resowner(Username, Password, Email, Scope, #{pool := Pool}=AppCtx) ->
   {ok, {Cctx, _Pctx}} = esh_worker_user_confirm:init(),
-  mongopool_app:insert(eshpool, ?USER_TABLE, #{
+  mongopool_app:insert(Pool, ?USER_TABLE, #{
                   <<"_id">> => Username,
                   <<"username">> => Username,
                   <<"password">> => Password,
@@ -186,8 +174,10 @@ add_resowner(Username, Password, Email, Scope) ->
                   <<"status">> => <<"register">>,
                   <<"_ctx">> => Cctx,
                   <<"scope">> => Scope}),
-  esh_worker_user_confirm:register_user(Username, Username, Email,
-                                        {Cctx, _Pctx}).
+  % FIXME
+  % esh_worker_user_confirm:register_user(Username, Username, Email,
+                                        % {Cctx, _Pctx}),
+  {ok, AppCtx}.
 
 -spec delete_resowner(Username) -> ok when
     Username :: binary().
@@ -199,16 +189,15 @@ delete_resowner(Username) ->
 delete_client(Id) ->
   mongopool_app:delete(eshpool, ?CLIENT_TABLE, #{<<"_id">> => Id}).
 
-get_resowner(Username) ->
-  case mongopool_app:find_one(eshpool, ?USER_TABLE, #{<<"_id">> => Username}) of
-    #{<<"_id">> := Username}=User -> {ok, User};
+get_resowner(Username, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => Username}) of
+    #{<<"_id">> := Username}=User -> {ok, {AppCtx, User}};
     #{} -> throw(notfound)
   end.
 
-get_client(ClientId) ->
-  case mongopool_app:find_one(eshpool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
-    #{<<"_id">> := ClientId}=Client -> {ok, Client};
-    % TODO return throw(client_not_found)? (see also authenticate_client)
+get_client(ClientId, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
+    #{<<"_id">> := ClientId}=Client -> {ok, {AppCtx, Client}};
     #{} -> {error, notfound}
   end.
 
@@ -218,7 +207,7 @@ get_client(ClientId) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
 authenticate_user({Username, Password}, AppCtx) ->
   try
-    case get_resowner(Username) of
+    case get_resowner(Username, AppCtx) of
       {ok, #{<<"password">> := Password} = Identity} ->
         {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
       {ok, #{<<"password">> := _WrongPassword}} ->
@@ -230,45 +219,43 @@ authenticate_user({Username, Password}, AppCtx) ->
 
 -spec authenticate_client(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
-authenticate_client({ClientId, ClientSecret}, AppCtx) ->
-  case get_client(ClientId) of
-    {ok, #{<<"client_secret">> := ClientSecret}=Identity} ->
+authenticate_client({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
+    #{<<"client_secret">> := ClientSecret}=Identity ->
       {ok, {AppCtx, Identity#{<<"client_secret">> := undefined}}};
-    {ok, #{<<"client_secret">> := _WrongClientSecret}} ->
-      {error, badsecret};
-    {error, ErrorType} ->
-      {error, ErrorType}
+    #{<<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
+    #{} -> {error, notfound}
   end.
 
 -spec associate_refresh_token(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-associate_refresh_token(RefreshToken, Context, AppCtx) ->
+associate_refresh_token(RefreshToken, Context, #{pool := Pool}=AppCtx) ->
   mongopool_app:insert(
-    eshpool, ?REFRESH_TOKEN_TABLE,
+    Pool, ?REFRESH_TOKEN_TABLE,
     #{<<"_id">> => RefreshToken, <<"token">> => RefreshToken,
       <<"grant">> => Context}),
   {ok, AppCtx}.
 
 -spec associate_access_code(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-associate_access_code(AccessCode, Context, AppCtx) ->
-  mongopool_app:insert(eshpool, ?ACCESS_CODE_TABLE,
+associate_access_code(AccessCode, Context, #{pool := Pool}=AppCtx) ->
+  mongopool_app:insert(Pool, ?ACCESS_CODE_TABLE,
                        #{<<"_id">> => AccessCode, <<"token">> => AccessCode,
                          <<"grant">> => Context}),
   {ok, AppCtx}.
 
 -spec associate_access_token(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-associate_access_token(AccessToken, Context, AppCtx) ->
-  mongopool_app:insert(eshpool, ?ACCESS_TOKEN_TABLE,
+associate_access_token(AccessToken, Context, #{pool := Pool}=AppCtx) ->
+  mongopool_app:insert(Pool, ?ACCESS_TOKEN_TABLE,
                        #{<<"_id">> => AccessToken, <<"token">> => AccessToken,
                          <<"grant">> => Context}),
   {ok, AppCtx}.
 
 -spec resolve_refresh_token(token(), appctx()) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
-resolve_refresh_token(RefreshToken, AppCtx) ->
-  case mongopool_app:find_one(eshpool, ?REFRESH_TOKEN_TABLE,
+resolve_refresh_token(RefreshToken, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?REFRESH_TOKEN_TABLE,
                               #{<<"token">> => RefreshToken}) of
     #{<<"token">> := RefreshToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
@@ -277,9 +264,9 @@ resolve_refresh_token(RefreshToken, AppCtx) ->
 
 -spec resolve_access_code(token(), appctx()) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
-resolve_access_code(AccessCode, AppCtx) ->
-  case mongopool_app:find_one(eshpool, ?ACCESS_CODE_TABLE,
-                          #{<<"token">> => AccessCode}) of
+resolve_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?ACCESS_CODE_TABLE,
+                              #{<<"token">> => AccessCode}) of
     #{<<"token">> := AccessCode, <<"grant">> := Grant} ->
       io:format("resolve_access_code: ~p~n",
                 [oauth2_mongopool_utils:dbMap2OAuth2List(Grant)]),
@@ -289,8 +276,8 @@ resolve_access_code(AccessCode, AppCtx) ->
 
 -spec resolve_access_token(token(), appctx()) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
-resolve_access_token(AccessToken, AppCtx) ->
-  case mongopool_app:find_one(eshpool, ?ACCESS_TOKEN_TABLE,
+resolve_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?ACCESS_TOKEN_TABLE,
                           #{<<"token">> => AccessToken}) of
     #{<<"token">> := AccessToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
@@ -299,34 +286,33 @@ resolve_access_token(AccessToken, AppCtx) ->
 
 -spec revoke_refresh_token(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-revoke_refresh_token(RefreshToken, AppCtx) ->
-  mongopool_app:delete(eshpool, ?REFRESH_TOKEN_TABLE,
+revoke_refresh_token(RefreshToken, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?REFRESH_TOKEN_TABLE,
                        #{<<"token">> => RefreshToken}),
   {ok, AppCtx}.
 
 -spec revoke_access_code(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-revoke_access_code(AccessCode, AppCtx) ->
-  mongopool_app:delete(eshpool, ?ACCESS_CODE_TABLE,
+revoke_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?ACCESS_CODE_TABLE,
                        #{<<"token">> => AccessCode}),
   {ok, AppCtx}.
 
 -spec revoke_access_token(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-revoke_access_token(AccessToken, AppCtx) ->
-  mongopool_app:delete(eshpool, ?ACCESS_TOKEN_TABLE,
+revoke_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?ACCESS_TOKEN_TABLE,
                        #{<<"token">> => AccessToken}),
   {error, AppCtx}.
 
 -spec get_client_identity(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
-get_client_identity(ClientId, AppCtx) ->
-  % FIXME return badsecret
-  % FIXME use client object instead of client id
-  case get_client(ClientId) of
-    {ok, #{<<"client_id">> := ClientId}=Identity} ->
+get_client_identity({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
+    #{<<"client_secret">> := ClientSecret}=Identity ->
       {ok, {AppCtx, Identity#{<<"client_secret">> => undefined}}};
-    {error, ErrorType} -> {error, ErrorType}
+    #{<<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
+    #{} -> {error, notfound}
   end.
 
 -spec verify_redirection_uri(client(), binary(), appctx()) ->
