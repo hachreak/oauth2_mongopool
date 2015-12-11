@@ -196,16 +196,12 @@ get_client(ClientId, #{pool := Pool}=AppCtx) ->
 
 -spec authenticate_user(user(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
-authenticate_user({Username, Password}, AppCtx) ->
-  try
-    case get_resowner(Username, AppCtx) of
-      {ok, #{<<"password">> := Password} = Identity} ->
-        {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
-      {ok, #{<<"password">> := _WrongPassword}} ->
-        {error, badpass}
-    end
-  catch
-    not_found -> {error, notfound}
+authenticate_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => UserId}) of
+    #{<<"password">> := Password} = Identity ->
+      {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
+    #{<<"password">> := _WrongPassword} -> {error, badpass};
+    #{} -> {error, notfound}
   end.
 
 -spec authenticate_client(client(), appctx()) ->
