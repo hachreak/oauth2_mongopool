@@ -107,31 +107,31 @@ is_authorized(AccessToken, GetObjectScope, AppCtx)
     {error, _ErrorType} -> throw(not_authorized)
   end.
 
-get_resowner_scope(Username, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => Username}) of
+get_resowner_scope(UserId, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => UserId}) of
     #{<<"scope">> := Scope} -> {ok, {AppCtx, Scope}};
     #{} -> throw(not_found)
   end.
 
 % @doc add a new scope to user.
-add_resowner_scope(Username, Scope, AppCtx) when is_binary(Scope) ->
-  add_resowner_scope(Username, [Scope], AppCtx);
-add_resowner_scope(Username, Scope, #{pool := Pool}=AppCtx)
+add_resowner_scope(UserId, Scope, AppCtx) when is_binary(Scope) ->
+  add_resowner_scope(UserId, [Scope], AppCtx);
+add_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
   when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(Username, AppCtx),
+  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(UserId, AppCtx),
   MergedScopes = lists:umerge(CurrentScope, Scope),
   mongopool_app:update(Pool, ?USER_TABLE,
-                       #{<<"_id">> => Username}, {<<"$set">>, MergedScopes}).
+                       #{<<"_id">> => UserId}, {<<"$set">>, MergedScopes}).
 
 % @doc remove a scope from user.
-remove_resowner_scope(Username, Scope, AppCtx) when is_binary(Scope) ->
-  remove_resowner_scope(Username, [Scope], AppCtx);
-remove_resowner_scope(Username, Scope, #{pool := Pool}=AppCtx)
+remove_resowner_scope(UserId, Scope, AppCtx) when is_binary(Scope) ->
+  remove_resowner_scope(UserId, [Scope], AppCtx);
+remove_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
   when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(Username, AppCtx),
+  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(UserId, AppCtx),
   RemovedScopes = lists:subtract(CurrentScope, Scope),
   mongopool_app:update(Pool, ?USER_TABLE,
-                       #{<<"_id">> => Username}, {<<"$set">>, RemovedScopes}).
+                       #{<<"_id">> => UserId}, {<<"$set">>, RemovedScopes}).
 
 
 -spec add_client(binary(), binary(), binary(), oauth2:scope(), appctx()) ->
@@ -149,40 +149,40 @@ add_client(Id, Secret, RedirectUri, Scope, #{pool := Pool}=AppCtx) ->
 
 -spec add_resowner(binary(), binary(), binary(), appctx()) ->
   {ok, appctx()} | {error, term()}.
-add_resowner(Username, Password, Email, AppCtx) ->
-  add_resowner(Username, Password, Email,
-               [<< <<"users.">>/binary, Username/binary >>], AppCtx).
+add_resowner(UserId, Password, Email, AppCtx) ->
+  add_resowner(UserId, Password, Email,
+               [<< <<"users.">>/binary, UserId/binary >>], AppCtx).
 
 -spec add_resowner(binary(), binary(), binary(), oauth2:scope(), appctx()) ->
   {ok, appctx()} | {error, term()}.
-add_resowner(Username, Password, Email, Scope, #{pool := Pool}=AppCtx) ->
+add_resowner(UserId, Password, Email, Scope, #{pool := Pool}=AppCtx) ->
   {ok, {Cctx, _Pctx}} = esh_worker_user_confirm:init(),
   mongopool_app:insert(Pool, ?USER_TABLE, #{
-                  <<"_id">> => Username,
-                  <<"username">> => Username,
+                  <<"_id">> => UserId,
+                  <<"username">> => UserId,
                   <<"password">> => Password,
                   <<"email">> => Email,
                   <<"status">> => <<"register">>,
                   <<"_ctx">> => Cctx,
                   <<"scope">> => Scope}),
   % FIXME
-  % esh_worker_user_confirm:register_user(Username, Username, Email,
+  % esh_worker_user_confirm:register_user(UserId, UserId, Email,
                                         % {Cctx, _Pctx}),
   {ok, AppCtx}.
 
--spec delete_resowner(Username) -> ok when
-    Username :: binary().
-delete_resowner(Username) ->
-  mongopool_app:delete(eshpool, ?USER_TABLE, #{<<"_id">> => Username}).
+-spec delete_resowner(UserId) -> ok when
+    UserId :: binary().
+delete_resowner(UserId) ->
+  mongopool_app:delete(eshpool, ?USER_TABLE, #{<<"_id">> => UserId}).
 
 -spec delete_client(Id) -> ok when
     Id :: binary().
 delete_client(Id) ->
   mongopool_app:delete(eshpool, ?CLIENT_TABLE, #{<<"_id">> => Id}).
 
-get_resowner(Username, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => Username}) of
-    #{<<"_id">> := Username}=User -> {ok, {AppCtx, User}};
+get_resowner(UserId, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => UserId}) of
+    #{<<"_id">> := UserId}=User -> {ok, {AppCtx, User}};
     #{} -> throw(notfound)
   end.
 
