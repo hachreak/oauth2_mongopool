@@ -52,7 +52,7 @@ The `AppCtx` is the application context used when you call `oauth2` functions.
 E.g. to verify the access token:
 
 ```erlang
-case verify_access_token(<<mytoken>>, AppCtx) of
+case oauth2:verify_access_token(<<mytoken>>, AppCtx) of
   {ok, } -> true;
   {error, _ErrType} -> false
 end

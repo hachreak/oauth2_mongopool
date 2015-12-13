@@ -1,0 +1,9 @@
+services:
+    - mongodb
+language: erlang
+otp_release:
+  - 18.0
+  - 18.1
+before_script:
+    - sleep 15
+script: "./utils/rebar3 eunit"
