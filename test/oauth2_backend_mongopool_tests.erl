@@ -36,8 +36,6 @@ oauth2_backend_mongopool_test_() ->
          associate_refresh_token_test(SetupData),
          associate_access_token_test(SetupData),
          associate_access_code_test(SetupData),
-         delete_client_test(SetupData),
-         get_client_test(SetupData),
          authenticate_user_test(SetupData),
          authenticate_client_test(SetupData),
          get_client_identity_test(SetupData),
@@ -323,32 +321,6 @@ associate_access_code_test(_) ->
       {error, notfound},
       oauth2_backend_mongopool:resolve_access_code(AccessCode, AppCtx)
     )
-  end.
-
-delete_client_test(_SetupData) ->
-  fun() ->
-    ClientId = <<"test-client">>,
-    AppCtx = #{pool => fuu},
-    delete(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => ClientId})
-           end),
-    {ok, AppCtx} = oauth2_backend_mongopool:delete_client(
-      ClientId, AppCtx)
-  end.
-
-get_client_test(_SetupData) ->
-  fun() ->
-    ClientId = <<"test-client">>,
-    AppCtx = #{pool => fuu},
-    Client = #{<<"_id">> => ClientId},
-    find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => ClientId}),
-               Client
-           end),
-    {ok, {AppCtx, Client}} = oauth2_backend_mongopool:get_client(
-      ClientId, AppCtx),
-    find_one(#{}),
-    {error, notfound} = oauth2_backend_mongopool:get_client(ClientId, AppCtx)
   end.
 
 authenticate_user_test(_SetupData) ->

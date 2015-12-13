@@ -34,13 +34,6 @@
 
 -behaviour(oauth2_backend).
 
-%%% API
--export([
-         add_client/5,
-         get_client/2,
-         delete_client/2
-        ]).
-
 %%% OAuth2 backend functionality
 -export([associate_access_code/3,
          associate_access_token/3,
@@ -98,32 +91,6 @@ is_authorized(AccessToken, GetObjectScope, AppCtx)
         false -> throw(not_authorized)
       end;
     {error, _ErrorType} -> throw(not_authorized)
-  end.
-
--spec add_client(binary(), binary(), binary(), scope(), appctx()) ->
-  {ok, appctx()} | {error, term()}.
-add_client(Id, Secret, RedirectUri, Scope, #{pool := Pool}=AppCtx) ->
-  mongopool_app:insert(Pool, ?CLIENT_TABLE, #{
-                    <<"_id">> => Id,
-                    % TODO remove client_id?
-                    <<"client_id">> => Id,
-                    <<"client_secret">> => Secret,
-                    <<"redirect_uri">> => RedirectUri,
-                    <<"scope">> => Scope
-                   }),
-  {ok, AppCtx}.
-
--spec delete_client(binary(), appctx()) -> {ok, appctx()} | {error, term()}.
-delete_client(ClientId, #{pool := Pool}=AppCtx) ->
-  mongopool_app:delete(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}),
-  {ok, AppCtx}.
-
--spec get_client(binary(), appctx()) ->
-  {ok, {appctx(), user()}} | {error, notfound}.
-get_client(ClientId, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
-    #{<<"_id">> := ClientId}=Client -> {ok, {AppCtx, Client}};
-    #{} -> {error, notfound}
   end.
 
 %%% Oauth2 Backend API implementation
