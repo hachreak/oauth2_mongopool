@@ -15,7 +15,7 @@
 %%% along with this software; if not, write to the Free Software Foundation,
 %%% Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 %%%
-%%% @doc Esensub Worker - Tests.
+%%% @doc Oauth2 mongopool backend - Tests.
 %%% @end
 
 -module(oauth2_backend_mongopool_tests).
@@ -36,10 +36,7 @@ oauth2_backend_mongopool_test_() ->
          associate_refresh_token_test(SetupData),
          associate_access_token_test(SetupData),
          associate_access_code_test(SetupData),
-         add_resowner_test(SetupData),
-         delete_resowner_test(SetupData),
          delete_client_test(SetupData),
-         get_resowner_test(SetupData),
          get_client_test(SetupData),
          authenticate_user_test(SetupData),
          authenticate_client_test(SetupData),
@@ -328,39 +325,6 @@ associate_access_code_test(_) ->
     )
   end.
 
-add_resowner_test(_SetupData) ->
-  fun() ->
-    UserId = <<"test-user">>,
-    Password = <<"test-password">>,
-    Email = <<"test@fuu.it">>,
-    Scope = [<<"users.test-user">>],
-    AppCtx = #{pool => fuu},
-    insert(fun(fuu, _, Value) ->
-               ?assertEqual(Value,
-                            #{<<"_id">> => UserId,
-                              <<"username">> => UserId,
-                              <<"password">> => Password,
-                              <<"email">> => Email,
-                              <<"status">> => <<"register">>,
-                              <<"scope">> => Scope })
-           end),
-    {ok, AppCtx} = oauth2_backend_mongopool:add_resowner(
-      UserId, Password, Email, AppCtx),
-    {ok, AppCtx} = oauth2_backend_mongopool:add_resowner(
-      UserId, Password, Email, Scope, AppCtx)
-  end.
-
-delete_resowner_test(_SetupData) ->
-  fun() ->
-    UserId = <<"test-user">>,
-    AppCtx = #{pool => fuu},
-    delete(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => UserId})
-           end),
-    {ok, AppCtx} = oauth2_backend_mongopool:delete_resowner(
-      UserId, AppCtx)
-  end.
-
 delete_client_test(_SetupData) ->
   fun() ->
     ClientId = <<"test-client">>,
@@ -370,22 +334,6 @@ delete_client_test(_SetupData) ->
            end),
     {ok, AppCtx} = oauth2_backend_mongopool:delete_client(
       ClientId, AppCtx)
-  end.
-
-get_resowner_test(_SetupData) ->
-  fun() ->
-    UserId = <<"test-user">>,
-    AppCtx = #{pool => fuu},
-    User = #{<<"_id">> => UserId},
-    find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => UserId}),
-               User
-           end),
-    {ok, {AppCtx, User}} = oauth2_backend_mongopool:get_resowner(
-      UserId, AppCtx),
-    find_one(#{}),
-    ?assertException(
-       throw, notfound, oauth2_backend_mongopool:get_resowner(UserId, AppCtx))
   end.
 
 get_client_test(_SetupData) ->

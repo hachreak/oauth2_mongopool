@@ -37,15 +37,8 @@
 %%% API
 -export([
          add_client/5,
-         add_resowner/4,
-         add_resowner/5,
-         add_resowner_scope/3,
-         remove_resowner_scope/3,
-         get_resowner_scope/2,
          get_client/2,
-         get_resowner/2,
-         delete_client/2,
-         delete_resowner/2
+         delete_client/2
         ]).
 
 %%% OAuth2 backend functionality
@@ -107,37 +100,6 @@ is_authorized(AccessToken, GetObjectScope, AppCtx)
     {error, _ErrorType} -> throw(not_authorized)
   end.
 
--spec get_resowner_scope(binary(), appctx()) ->
-  {ok, {appctx(), scope()}} | no_return().
-get_resowner_scope(UserId, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => UserId}) of
-    #{<<"scope">> := Scope} -> {ok, {AppCtx, Scope}};
-    #{} -> throw(not_found)
-  end.
-
-% @doc add a new scope to user.
--spec add_resowner_scope(binary(), scope(), appctx()) -> ok.
-add_resowner_scope(UserId, Scope, AppCtx) when is_binary(Scope) ->
-  add_resowner_scope(UserId, [Scope], AppCtx);
-add_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
-  when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(UserId, AppCtx),
-  MergedScopes = lists:umerge(CurrentScope, Scope),
-  mongopool_app:update(Pool, ?USER_TABLE,
-                       #{<<"_id">> => UserId}, {<<"$set">>, MergedScopes}).
-
-% @doc remove a scope from user.
--spec remove_resowner_scope(binary(), scope(), appctx()) -> ok.
-remove_resowner_scope(UserId, Scope, AppCtx) when is_binary(Scope) ->
-  remove_resowner_scope(UserId, [Scope], AppCtx);
-remove_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
-  when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(UserId, AppCtx),
-  RemovedScopes = lists:subtract(CurrentScope, Scope),
-  mongopool_app:update(Pool, ?USER_TABLE,
-                       #{<<"_id">> => UserId}, {<<"$set">>, RemovedScopes}).
-
-
 -spec add_client(binary(), binary(), binary(), scope(), appctx()) ->
   {ok, appctx()} | {error, term()}.
 add_client(Id, Secret, RedirectUri, Scope, #{pool := Pool}=AppCtx) ->
@@ -151,46 +113,10 @@ add_client(Id, Secret, RedirectUri, Scope, #{pool := Pool}=AppCtx) ->
                    }),
   {ok, AppCtx}.
 
--spec add_resowner(binary(), binary(), binary(), appctx()) ->
-  {ok, appctx()} | {error, term()}.
-add_resowner(UserId, Password, Email, AppCtx) ->
-  add_resowner(UserId, Password, Email,
-               [<< <<"users.">>/binary, UserId/binary >>], AppCtx).
-
--spec add_resowner(binary(), binary(), binary(), scope(), appctx()) ->
-  {ok, appctx()} | {error, term()}.
-add_resowner(UserId, Password, Email, Scope, #{pool := Pool}=AppCtx) ->
-  % {ok, {Cctx, _Pctx}} = esh_worker_user_confirm:init(),
-  mongopool_app:insert(Pool, ?USER_TABLE, #{
-                  <<"_id">> => UserId,
-                  <<"username">> => UserId,
-                  <<"password">> => Password,
-                  <<"email">> => Email,
-                  <<"status">> => <<"register">>,
-                  % <<"_ctx">> => Cctx,
-                  <<"scope">> => Scope}),
-  % FIXME
-  % esh_worker_user_confirm:register_user(UserId, UserId, Email,
-                                        % {Cctx, _Pctx}),
-  {ok, AppCtx}.
-
--spec delete_resowner(binary(), appctx()) -> {ok, appctx()} | {error, term()}.
-delete_resowner(UserId, #{pool := Pool}=AppCtx) ->
-  mongopool_app:delete(Pool, ?USER_TABLE, #{<<"_id">> => UserId}),
-  {ok, AppCtx}.
-
 -spec delete_client(binary(), appctx()) -> {ok, appctx()} | {error, term()}.
 delete_client(ClientId, #{pool := Pool}=AppCtx) ->
   mongopool_app:delete(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}),
   {ok, AppCtx}.
-
--spec get_resowner(binary(), appctx()) ->
-  {ok, {appctx(), user()}} | no_return().
-get_resowner(UserId, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => UserId}) of
-    #{<<"_id">> := UserId}=User -> {ok, {AppCtx, User}};
-    #{} -> throw(notfound)
-  end.
 
 -spec get_client(binary(), appctx()) ->
   {ok, {appctx(), user()}} | {error, notfound}.
