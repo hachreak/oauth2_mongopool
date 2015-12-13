@@ -35,7 +35,18 @@ oauth2_backend_mongopool_test_() ->
          verify_scope_test(SetupData),
          associate_refresh_token_test(SetupData),
          associate_access_token_test(SetupData),
-         associate_access_code_test(SetupData)
+         associate_access_code_test(SetupData),
+         add_resowner_test(SetupData),
+         delete_resowner_test(SetupData),
+         delete_client_test(SetupData),
+         get_resowner_test(SetupData),
+         get_client_test(SetupData),
+         authenticate_user_test(SetupData),
+         authenticate_client_test(SetupData),
+         get_client_identity_test(SetupData),
+         verify_redirection_uri_test(SetupData),
+         verify_client_scope_test(SetupData),
+         verify_resowner_scope_test(SetupData)
         ]
     end
   }.
@@ -44,6 +55,8 @@ start() ->
   meck:new(mongopool_app, [no_link, passthrough, no_history, non_strict]),
   application:set_env(oauth2, backend, oauth2_backend_mongopool).
 
+find_one(Fun) when is_function(Fun) ->
+  meck:expect(mongopool_app, find_one, 3, Fun);
 find_one(Return) ->
   meck:expect(mongopool_app, find_one, 3, fun(_A, _B, _C) -> Return end).
 
@@ -187,6 +200,18 @@ verify_scope_test(_) ->
                      [<<"users.testuser.boxes">>],
                      undefined
                     )),
+      ?assertEqual({ok, {undefined, [<<"users.testuser.boxes">>]}},
+                   oauth2_backend_mongopool:verify_scope(
+                     [<<"users.testuser.boxes">>],
+                     undefined,
+                     undefined
+                    )),
+      ?assertEqual({ok, {undefined, []}},
+                   oauth2_backend_mongopool:verify_scope(
+                     [<<"users.testuser.boxes">>],
+                     [],
+                     undefined
+                    )),
       ?assertEqual({ok, {undefined, [<<"users.testuser.boxes.fuu">>]}},
                    oauth2_backend_mongopool:verify_scope(
                      [<<"users.testuser.boxes">>],
@@ -202,6 +227,12 @@ verify_scope_test(_) ->
       ?assertEqual({error, badscope},
                    oauth2_backend_mongopool:verify_scope(
                      [<<"users.testuser.boxes">>],
+                     [<<"users.testuser.bar">>],
+                     undefined
+                    )),
+      ?assertEqual({error, badscope},
+                   oauth2_backend_mongopool:verify_scope(
+                     [],
                      [<<"users.testuser.bar">>],
                      undefined
                     ))
@@ -295,4 +326,209 @@ associate_access_code_test(_) ->
       {error, notfound},
       oauth2_backend_mongopool:resolve_access_code(AccessCode, AppCtx)
     )
+  end.
+
+add_resowner_test(_SetupData) ->
+  fun() ->
+    UserId = <<"test-user">>,
+    Password = <<"test-password">>,
+    Email = <<"test@fuu.it">>,
+    Scope = [<<"users.test-user">>],
+    AppCtx = #{pool => fuu},
+    insert(fun(fuu, _, Value) ->
+               ?assertEqual(Value,
+                            #{<<"_id">> => UserId,
+                              <<"username">> => UserId,
+                              <<"password">> => Password,
+                              <<"email">> => Email,
+                              <<"status">> => <<"register">>,
+                              <<"scope">> => Scope })
+           end),
+    {ok, AppCtx} = oauth2_backend_mongopool:add_resowner(
+      UserId, Password, Email, AppCtx),
+    {ok, AppCtx} = oauth2_backend_mongopool:add_resowner(
+      UserId, Password, Email, Scope, AppCtx)
+  end.
+
+delete_resowner_test(_SetupData) ->
+  fun() ->
+    UserId = <<"test-user">>,
+    AppCtx = #{pool => fuu},
+    delete(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => UserId})
+           end),
+    {ok, AppCtx} = oauth2_backend_mongopool:delete_resowner(
+      UserId, AppCtx)
+  end.
+
+delete_client_test(_SetupData) ->
+  fun() ->
+    ClientId = <<"test-client">>,
+    AppCtx = #{pool => fuu},
+    delete(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => ClientId})
+           end),
+    {ok, AppCtx} = oauth2_backend_mongopool:delete_client(
+      ClientId, AppCtx)
+  end.
+
+get_resowner_test(_SetupData) ->
+  fun() ->
+    UserId = <<"test-user">>,
+    AppCtx = #{pool => fuu},
+    User = #{<<"_id">> => UserId},
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => UserId}),
+               User
+           end),
+    {ok, {AppCtx, User}} = oauth2_backend_mongopool:get_resowner(
+      UserId, AppCtx),
+    find_one(#{}),
+    ?assertException(
+       throw, notfound, oauth2_backend_mongopool:get_resowner(UserId, AppCtx))
+  end.
+
+get_client_test(_SetupData) ->
+  fun() ->
+    ClientId = <<"test-client">>,
+    AppCtx = #{pool => fuu},
+    Client = #{<<"_id">> => ClientId},
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => ClientId}),
+               Client
+           end),
+    {ok, {AppCtx, Client}} = oauth2_backend_mongopool:get_client(
+      ClientId, AppCtx),
+    find_one(#{}),
+    {error, notfound} = oauth2_backend_mongopool:get_client(ClientId, AppCtx)
+  end.
+
+authenticate_user_test(_SetupData) ->
+  fun() ->
+    UserId = <<"test-user-id">>,
+    Password = <<"test-password">>,
+    WrongUserId = <<"wrong-user-id">>,
+    WrongPassword = <<"wrong-password">>,
+    User = #{<<"_id">> => UserId, <<"password">> => Password},
+    AppCtx = #{pool => fuu},
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => UserId}),
+               User
+           end),
+    {ok, {AppCtx, #{<<"password">> := undefined}}} =
+      oauth2_backend_mongopool:authenticate_user({UserId, Password}, AppCtx),
+    {error, badpass} =
+      oauth2_backend_mongopool:authenticate_user(
+        {UserId, WrongPassword}, AppCtx),
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => WrongUserId}),
+               #{}
+           end),
+    {error, notfound} =
+      oauth2_backend_mongopool:authenticate_user(
+        {WrongUserId, Password}, AppCtx)
+  end.
+
+authenticate_client_test(_SetupData) ->
+  fun() ->
+    ClientId = <<"test-client-id">>,
+    ClientSecret = <<"test-client_secret">>,
+    WrongUserId = <<"wrong-client-id">>,
+    WrongClientSecret = <<"wrong-client_secret">>,
+    Client = #{<<"_id">> => ClientId, <<"client_secret">> => ClientSecret},
+    AppCtx = #{pool => fuu},
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => ClientId}),
+               Client
+           end),
+    {ok, {AppCtx, #{<<"client_secret">> := undefined}}} =
+      oauth2_backend_mongopool:authenticate_client(
+        {ClientId, ClientSecret}, AppCtx),
+    {error, badsecret} =
+      oauth2_backend_mongopool:authenticate_client(
+        {ClientId, WrongClientSecret}, AppCtx),
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => WrongUserId}),
+               #{}
+           end),
+    {error, notfound} =
+      oauth2_backend_mongopool:authenticate_client(
+        {WrongUserId, ClientSecret}, AppCtx)
+  end.
+
+get_client_identity_test(_SetupData) ->
+  fun() ->
+    ClientId = <<"test-client-id">>,
+    ClientSecret = <<"test-client_secret">>,
+    WrongUserId = <<"wrong-client-id">>,
+    WrongClientSecret = <<"wrong-client_secret">>,
+    Client = #{<<"_id">> => ClientId, <<"client_secret">> => ClientSecret},
+    AppCtx = #{pool => fuu},
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => ClientId}),
+               Client
+           end),
+    {ok, {AppCtx, #{<<"client_secret">> := undefined}}} =
+      oauth2_backend_mongopool:get_client_identity(
+        {ClientId, ClientSecret}, AppCtx),
+    {error, badsecret} =
+      oauth2_backend_mongopool:get_client_identity(
+        {ClientId, WrongClientSecret}, AppCtx),
+    find_one(fun(fuu, _, Value) ->
+               ?assertEqual(Value, #{<<"_id">> => WrongUserId}),
+               #{}
+           end),
+    {error, notfound} =
+      oauth2_backend_mongopool:get_client_identity(
+        {WrongUserId, ClientSecret}, AppCtx)
+  end.
+
+verify_redirection_uri_test(_SetupData) ->
+  fun() ->
+    AppCtx = #{pool => fuu},
+    Uri = <<"http://fuu.bar">>,
+    WrongUri = <<"http://wrong.uri">>,
+    Client = #{<<"redirect_uri">> => Uri},
+    {ok, {AppCtx, Uri}} = oauth2_backend_mongopool:verify_redirection_uri(
+                            Client, Uri, AppCtx),
+    {error, baduri} = oauth2_backend_mongopool:verify_redirection_uri(
+                        Client#{<<"redirect_uri">> => <<>>}, Uri, AppCtx),
+    {error, baduri} = oauth2_backend_mongopool:verify_redirection_uri(
+                        Client, WrongUri, AppCtx)
+  end.
+
+verify_client_scope_test(_SetupData) ->
+  fun() ->
+    AppCtx = #{pool => fuu},
+    Scope = [<<"foo.bar">>],
+    WrongScope = [<<"wrong.scope">>],
+    Client = #{<<"scope">> => Scope},
+    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_client_scope(
+                              Client, Scope, AppCtx),
+    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_client_scope(
+                              Client, undefined, AppCtx),
+    {ok, {AppCtx, []}} = oauth2_backend_mongopool:verify_client_scope(
+                              Client, [], AppCtx),
+    {error, badscope} = oauth2_backend_mongopool:verify_client_scope(
+                              Client, WrongScope, AppCtx),
+    {error, badscope} = oauth2_backend_mongopool:verify_client_scope(
+                              Client#{<<"scope">> => []}, Scope, AppCtx)
+  end.
+
+verify_resowner_scope_test(_SetupData) ->
+  fun() ->
+    AppCtx = #{pool => fuu},
+    Scope = [<<"foo.bar">>],
+    WrongScope = [<<"wrong.scope">>],
+    User = #{<<"scope">> => Scope},
+    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_resowner_scope(
+                              User, Scope, AppCtx),
+    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_resowner_scope(
+                              User, undefined, AppCtx),
+    {ok, {AppCtx, []}} = oauth2_backend_mongopool:verify_resowner_scope(
+                              User, [], AppCtx),
+    {error, badscope} = oauth2_backend_mongopool:verify_resowner_scope(
+                              User, WrongScope, AppCtx),
+    {error, badscope} = oauth2_backend_mongopool:verify_resowner_scope(
+                              User#{<<"scope">> => []}, Scope, AppCtx)
   end.

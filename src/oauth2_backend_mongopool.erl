@@ -44,8 +44,8 @@
          get_resowner_scope/2,
          get_client/2,
          get_resowner/2,
-         delete_client/1,
-         delete_resowner/1
+         delete_client/2,
+         delete_resowner/2
         ]).
 
 %%% OAuth2 backend functionality
@@ -160,27 +160,29 @@ add_resowner(UserId, Password, Email, AppCtx) ->
 -spec add_resowner(binary(), binary(), binary(), scope(), appctx()) ->
   {ok, appctx()} | {error, term()}.
 add_resowner(UserId, Password, Email, Scope, #{pool := Pool}=AppCtx) ->
-  {ok, {Cctx, _Pctx}} = esh_worker_user_confirm:init(),
+  % {ok, {Cctx, _Pctx}} = esh_worker_user_confirm:init(),
   mongopool_app:insert(Pool, ?USER_TABLE, #{
                   <<"_id">> => UserId,
                   <<"username">> => UserId,
                   <<"password">> => Password,
                   <<"email">> => Email,
                   <<"status">> => <<"register">>,
-                  <<"_ctx">> => Cctx,
+                  % <<"_ctx">> => Cctx,
                   <<"scope">> => Scope}),
   % FIXME
   % esh_worker_user_confirm:register_user(UserId, UserId, Email,
                                         % {Cctx, _Pctx}),
   {ok, AppCtx}.
 
--spec delete_resowner(binary()) -> ok.
-delete_resowner(UserId) ->
-  mongopool_app:delete(eshpool, ?USER_TABLE, #{<<"_id">> => UserId}).
+-spec delete_resowner(binary(), appctx()) -> {ok, appctx()} | {error, term()}.
+delete_resowner(UserId, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?USER_TABLE, #{<<"_id">> => UserId}),
+  {ok, AppCtx}.
 
--spec delete_client(binary()) -> ok.
-delete_client(ClientId) ->
-  mongopool_app:delete(eshpool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}).
+-spec delete_client(binary(), appctx()) -> {ok, appctx()} | {error, term()}.
+delete_client(ClientId, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}),
+  {ok, AppCtx}.
 
 -spec get_resowner(binary(), appctx()) ->
   {ok, {appctx(), user()}} | no_return().
@@ -310,23 +312,23 @@ get_client_identity({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
 
 -spec verify_redirection_uri(client(), binary(), appctx()) ->
   {ok, appctx()} | {error, notfound | baduri}.
-verify_redirection_uri(#{redirect_uri := ClientUri}, ClientUri, AppCtx) ->
+verify_redirection_uri(
+  #{<<"redirect_uri">> := ClientUri}, ClientUri, AppCtx) ->
   {ok, {AppCtx, ClientUri}};
-verify_redirection_uri(#{redirect_uri := <<>>}, _ClientUri, _AppCtx) ->
+verify_redirection_uri(#{<<"redirect_uri">> := <<>>}, _ClientUri, _AppCtx) ->
   {error, baduri};
-verify_redirection_uri(#{redirect_uri := _WrongUri}, _ClientUri, _AppCtx) ->
+verify_redirection_uri(
+  #{<<"redirect_uri">> := _WrongUri}, _ClientUri, _AppCtx) ->
   {error, baduri}.
 
 -spec verify_client_scope(client(), scope(), appctx()) ->
   {ok, {appctx(), scope()}} | {error, notfound | badscope}.
 verify_client_scope(#{<<"scope">> := RegisteredScope}, Scope, AppCtx) ->
-  % FIXME errors check
   verify_scope(RegisteredScope, Scope, AppCtx).
 
 -spec verify_resowner_scope(term(), scope(), appctx()) ->
   {ok, {appctx(), scope()}} | {error, notfound | badscope}.
 verify_resowner_scope(#{<<"scope">> := RegisteredScope}, Scope, AppCtx) ->
-  % FIXME errors check
   verify_scope(RegisteredScope, Scope, AppCtx).
 
 -spec verify_scope(scope(), scope(), appctx()) ->
