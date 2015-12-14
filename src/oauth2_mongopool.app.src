@@ -5,7 +5,9 @@
   {applications,
    [kernel,
     stdlib,
-    mongopool
+    mongopool,
+    confirmator_mongopool,
+    pushmail
    ]},
   {env,[]},
   {modules, []},

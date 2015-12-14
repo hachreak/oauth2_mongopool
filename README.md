@@ -26,11 +26,21 @@ Configuration
       ]}
     ]}
   ]},
-  {oauth2, [
-    {backend, oauth2_backend_mongopool}
+  {confirmator, [
+    {backend, confirmator_mongopool}
+  ]},
+  {confirmator_mongopool, [
+    {pool, mypool},
+    {table, <<"confirmator">>}
+  ]},
+  {pushmail, [
+    {backend, pushmail_backend_error_logger}
   ]},
   {oauth2_mongopool, [
     {pool, mypool}
+  ]},
+  {oauth2, [
+    {backend, oauth2_backend_mongopool}
   ]}
 ]
 ```
