@@ -29,7 +29,9 @@
          delete_resowner/2,
          get_resowner/2,
          get_resowner_scope/2,
-         remove_resowner_scope/3
+         remove_resowner_scope/3,
+         send_confirmation/2,
+         confirm/3
         ]).
 
 % FIXME use the application environment
@@ -38,6 +40,7 @@
 %%%_ * Types -----------------------------------------------------------
 
 -type user()     :: oauth2:user().
+-type userobj()  :: #{binary() => binary()}.
 -type appctx()   :: oauth2:appctx().
 -type scope()    :: oauth2:scope().
 
@@ -50,21 +53,62 @@ add_resowner(UserId, Password, Email, AppCtx) ->
                [<< <<"users.">>/binary, UserId/binary >>], AppCtx).
 
 -spec add_resowner(binary(), binary(), binary(), scope(), appctx()) ->
-  {ok, appctx()} | {error, term()}.
+  {ok, {appctx(), confirmator:token()}} | {error, term()}.
 add_resowner(UserId, Password, Email, Scope, #{pool := Pool}=AppCtx) ->
   % {ok, {Cctx, _Pctx}} = esh_worker_user_confirm:init(),
-  mongopool_app:insert(Pool, ?USER_TABLE, #{
-                  <<"_id">> => UserId,
-                  <<"username">> => UserId,
-                  <<"password">> => Password,
-                  <<"email">> => Email,
-                  <<"status">> => <<"register">>,
-                  % <<"_ctx">> => Cctx,
-                  <<"scope">> => Scope}),
-  % FIXME
-  % esh_worker_user_confirm:register_user(UserId, UserId, Email,
-                                        % {Cctx, _Pctx}),
-  {ok, AppCtx}.
+  User = #{
+    <<"_id">> => UserId,
+    <<"username">> => UserId,
+    <<"password">> => Password,
+    <<"email">> => Email,
+    <<"status">> => <<"register">>,
+    <<"scope">> => Scope
+   },
+  mongopool_app:insert(Pool, ?USER_TABLE, User),
+  send_confirmation(User, AppCtx).
+
+-spec send_confirmation(userobj(), appctx()) ->
+  {ok, {appctx(), confirmation:token()}} | {error, term()}.
+send_confirmation(User, AppCtx) ->
+  #{cfgctx := CFGctx, pmctx := PMctx} = AppCtx,
+  UserId = maps:get(<<"_id">>, User),
+  Username = maps:get(<<"username">>, User),
+  UserEmail = maps:get(<<"email">>, User),
+  case confirmator:register(UserId, CFGctx) of
+    {ok, {Token, NewCFGctx}} ->
+      % after the user complete the registration, the system send an email
+      % to be able to confirm email.
+      Mail = #{
+         sender => <<"noreply@esenshub.com">>,
+         receivers => [UserEmail],
+         subject => << <<"Hello ">>/binary, Username/binary >>,
+         message => << <<"Please confirm your email!\n">>/binary,
+                       <<"http://127.0.0.1/api/users/">>/binary, UserId/binary,
+                       <<"/confirm?token=">>/binary, Token/binary >>,
+         headers => {}
+       },
+      case pushmail:send(Mail, PMctx) of
+        {ok, NewPMctx} ->
+          % Success!
+          {ok, {AppCtx#{cfgctx => NewCFGctx, pmctx => NewPMctx}, Token}};
+        {error, ErrorType} -> {error, ErrorType}
+      end;
+    {error, ErrorType} ->{error, ErrorType}
+  end.
+
+-spec confirm(binary(), confirmator:token(), appctx()) ->
+  {boolean(), appctx()}.
+confirm(UserId, Token, #{pool := Pool, cfgctx := CFGctx}=AppCtx) ->
+  {Result, NewCFGctx} = confirmator:confirm(UserId, Token, CFGctx),
+  case Result of
+    true ->
+      % user confirmed
+      mongopool_app:update(
+        Pool, ?USER_TABLE,
+        #{<<"_id">> => UserId}, {<<"$set">>, #{<<"status">> => <<"active">>}});
+    false -> ok
+  end,
+  {Result, AppCtx#{cfgctx => NewCFGctx}}.
 
 % @doc add a new scope to user.
 -spec add_resowner_scope(binary(), scope(), appctx()) -> ok.

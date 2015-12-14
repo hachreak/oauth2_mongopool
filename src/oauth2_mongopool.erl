@@ -16,7 +16,9 @@
 -spec start(application:start_type(), term()) ->
     ok | {error, term()}.
 start(_StartType, _StartArgs) ->
-  application:ensure_all_started(mongopool).
+  application:ensure_all_started(mongopool),
+  application:ensure_all_started(confirmator_mongopool),
+  application:ensure_all_started(pushmail).
 
 -spec stop(term()) -> ok.
 stop(_State) ->
@@ -24,13 +26,14 @@ stop(_State) ->
 
 -spec init() ->  {ok, appctx()} | {error, term()}.
 init() ->
-    {ok, Pool} = application:get_env(oauth2_mongopool, pool),
-    init(Pool).
+  {ok, Pool} = application:get_env(oauth2_mongopool, pool),
+  init(Pool).
 
--spec init(binary()) ->
-    {ok, appctx()} | {error, term()}.
+-spec init(binary()) -> {ok, appctx()} | {error, term()}.
 init(Pool) ->
-    {ok, #{pool => Pool}}.
+  {ok, CFGctx} = confirmator:init(),
+  {ok, PMctx} = pushmail:start(),
+  {ok, #{pool => Pool, cfgctx => CFGctx, pmctx => PMctx}}.
 
 %%====================================================================
 %% Internal functions
