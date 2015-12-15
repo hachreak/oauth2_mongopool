@@ -104,7 +104,7 @@ authenticate_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
     #{<<"password">> := Password} = Identity ->
       {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
     #{<<"password">> := _WrongPassword} -> {error, badpass};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
 
 -spec authenticate_client(client(), appctx()) ->
@@ -114,7 +114,7 @@ authenticate_client({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
     #{<<"client_secret">> := ClientSecret}=Identity ->
       {ok, {AppCtx, Identity#{<<"client_secret">> := undefined}}};
     #{<<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
 
 -spec associate_refresh_token(token(), grantctx(), appctx()) ->
@@ -149,7 +149,7 @@ resolve_refresh_token(RefreshToken, #{pool := Pool}=AppCtx) ->
                               #{<<"token">> => RefreshToken}) of
     #{<<"token">> := RefreshToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
 
 -spec resolve_access_code(token(), appctx()) ->
@@ -161,7 +161,7 @@ resolve_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
       io:format("resolve_access_code: ~p~n",
                 [oauth2_mongopool_utils:dbMap2OAuth2List(Grant)]),
       {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
 
 -spec resolve_access_token(token(), appctx()) ->
@@ -171,7 +171,7 @@ resolve_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
                           #{<<"token">> => AccessToken}) of
     #{<<"token">> := AccessToken, <<"grant">> := Grant} ->
       {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
 
 -spec revoke_refresh_token(token(), appctx()) ->
@@ -202,7 +202,7 @@ get_client_identity({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
     #{<<"client_secret">> := ClientSecret}=Identity ->
       {ok, {AppCtx, Identity#{<<"client_secret">> => undefined}}};
     #{<<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
 
 -spec verify_redirection_uri(client(), binary(), appctx()) ->

@@ -62,5 +62,5 @@ delete_client(ClientId, #{pool := Pool}=AppCtx) ->
 get_client(ClientId, #{pool := Pool}=AppCtx) ->
   case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
     #{<<"_id">> := ClientId}=Client -> {ok, {AppCtx, Client}};
-    #{} -> {error, notfound}
+    _Rest -> {error, notfound}
   end.
