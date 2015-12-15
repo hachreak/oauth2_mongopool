@@ -197,11 +197,10 @@ revoke_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
 
 -spec get_client_identity(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
-get_client_identity({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
+get_client_identity(ClientId, #{pool := Pool}=AppCtx) ->
   case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
-    #{<<"client_secret">> := ClientSecret}=Identity ->
+    #{<<"_id">> := ClientId}=Identity ->
       {ok, {AppCtx, Identity#{<<"client_secret">> => undefined}}};
-    #{<<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
     _Rest -> {error, notfound}
   end.
 

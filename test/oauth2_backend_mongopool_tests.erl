@@ -396,7 +396,6 @@ get_client_identity_test(_SetupData) ->
     ClientId = <<"test-client-id">>,
     ClientSecret = <<"test-client_secret">>,
     WrongUserId = <<"wrong-client-id">>,
-    WrongClientSecret = <<"wrong-client_secret">>,
     Client = #{<<"_id">> => ClientId, <<"client_secret">> => ClientSecret},
     AppCtx = #{pool => fuu},
     find_one(fun(fuu, _, Value) ->
@@ -404,18 +403,13 @@ get_client_identity_test(_SetupData) ->
                Client
            end),
     {ok, {AppCtx, #{<<"client_secret">> := undefined}}} =
-      oauth2_backend_mongopool:get_client_identity(
-        {ClientId, ClientSecret}, AppCtx),
-    {error, badsecret} =
-      oauth2_backend_mongopool:get_client_identity(
-        {ClientId, WrongClientSecret}, AppCtx),
+      oauth2_backend_mongopool:get_client_identity(ClientId, AppCtx),
     find_one(fun(fuu, _, Value) ->
                ?assertEqual(Value, #{<<"_id">> => WrongUserId}),
                #{}
            end),
     {error, notfound} =
-      oauth2_backend_mongopool:get_client_identity(
-        {WrongUserId, ClientSecret}, AppCtx)
+      oauth2_backend_mongopool:get_client_identity(WrongUserId, AppCtx)
   end.
 
 verify_redirection_uri_test(_SetupData) ->
