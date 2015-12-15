@@ -418,7 +418,7 @@ verify_redirection_uri_test(_SetupData) ->
     Uri = <<"http://fuu.bar">>,
     WrongUri = <<"http://wrong.uri">>,
     Client = #{<<"redirect_uri">> => Uri},
-    {ok, {AppCtx, Uri}} = oauth2_backend_mongopool:verify_redirection_uri(
+    {ok, AppCtx} = oauth2_backend_mongopool:verify_redirection_uri(
                             Client, Uri, AppCtx),
     {error, baduri} = oauth2_backend_mongopool:verify_redirection_uri(
                         Client#{<<"redirect_uri">> => <<>>}, Uri, AppCtx),

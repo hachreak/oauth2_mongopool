@@ -208,7 +208,7 @@ get_client_identity(ClientId, #{pool := Pool}=AppCtx) ->
   {ok, appctx()} | {error, notfound | baduri}.
 verify_redirection_uri(
   #{<<"redirect_uri">> := ClientUri}, ClientUri, AppCtx) ->
-  {ok, {AppCtx, ClientUri}};
+  {ok, AppCtx};
 verify_redirection_uri(#{<<"redirect_uri">> := <<>>}, _ClientUri, _AppCtx) ->
   {error, baduri};
 verify_redirection_uri(
