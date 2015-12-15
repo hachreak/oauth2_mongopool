@@ -75,7 +75,7 @@ send_confirmation(User, AppCtx) ->
   Username = maps:get(<<"username">>, User),
   UserEmail = maps:get(<<"email">>, User),
   case confirmator:register(UserId, CFGctx) of
-    {ok, {Token, NewCFGctx}} ->
+    {ok, {NewCFGctx, Token}} ->
       % after the user complete the registration, the system send an email
       % to be able to confirm email.
       Mail = #{

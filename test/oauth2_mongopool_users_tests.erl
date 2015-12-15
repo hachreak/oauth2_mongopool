@@ -37,7 +37,10 @@ oauth2_mongopool_users_test_() ->
 
 start() ->
   meck:new(mongopool_app, [no_link, passthrough, no_history, non_strict]),
-  application:set_env(oauth2, backend, oauth2_backend_mongopool).
+  meck:new(confirmator, [no_link, passthrough, no_history, non_strict]),
+  meck:new(pushmail, [no_link, passthrough, no_history, non_strict]),
+  application:set_env(oauth2, backend, oauth2_backend_mongopool),
+  application:set_env(confirmator, backend, confirmator_mongopool).
 
 find_one(Fun) when is_function(Fun) ->
   meck:expect(mongopool_app, find_one, 3, Fun);
@@ -54,7 +57,11 @@ delete(Return) ->
 
 stop(_Pid) ->
   meck:validate(mongopool_app),
-  meck:unload(mongopool_app).
+  meck:unload(mongopool_app),
+  meck:validate(confirmator),
+  meck:unload(confirmator),
+  meck:validate(pushmail),
+  meck:unload(pushmail).
 
 
 add_resowner_test(_SetupData) ->
@@ -63,7 +70,19 @@ add_resowner_test(_SetupData) ->
     Password = <<"test-password">>,
     Email = <<"test@fuu.it">>,
     Scope = [<<"users.test-user">>],
-    AppCtx = #{pool => fuu},
+    Token = <<"registration-token">>,
+    AppCtx = #{pool => fuu, cfgctx => test, pmctx => test},
+    meck:expect(confirmator, register, 2,
+                fun(MyUserId, CFGctx) ->
+                    ?assertEqual(MyUserId, UserId),
+                    ?assertEqual(CFGctx, maps:get(cfgctx, AppCtx)),
+                    {ok, {CFGctx, Token}}
+                end),
+    meck:expect(pushmail, send, 2,
+               fun(_Mail, PMctx) ->
+      ?assertEqual(PMctx, maps:get(pmctx, AppCtx)),
+      {ok, PMctx}
+    end),
     insert(fun(fuu, _, Value) ->
                ?assertEqual(Value,
                             #{<<"_id">> => UserId,
@@ -73,9 +92,9 @@ add_resowner_test(_SetupData) ->
                               <<"status">> => <<"register">>,
                               <<"scope">> => Scope })
            end),
-    {ok, AppCtx} = oauth2_mongopool_users:add_resowner(
+    {ok, {AppCtx, Token}} = oauth2_mongopool_users:add_resowner(
       UserId, Password, Email, AppCtx),
-    {ok, AppCtx} = oauth2_mongopool_users:add_resowner(
+    {ok, {AppCtx, Token}} = oauth2_mongopool_users:add_resowner(
       UserId, Password, Email, Scope, AppCtx)
   end.
 

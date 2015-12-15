@@ -329,24 +329,39 @@ authenticate_user_test(_SetupData) ->
     Password = <<"test-password">>,
     WrongUserId = <<"wrong-user-id">>,
     WrongPassword = <<"wrong-password">>,
-    User = #{<<"_id">> => UserId, <<"password">> => Password},
+    User = #{<<"_id">> => UserId, <<"password">> => Password,
+             <<"status">> => <<"active">>},
     AppCtx = #{pool => fuu},
     find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => UserId}),
+               ?assertEqual(
+                  Value, #{<<"_id">> => UserId, <<"status">> => <<"active">>}),
                User
            end),
+    % check ok
     {ok, {AppCtx, #{<<"password">> := undefined}}} =
       oauth2_backend_mongopool:authenticate_user({UserId, Password}, AppCtx),
+    % check badpass
     {error, badpass} =
       oauth2_backend_mongopool:authenticate_user(
         {UserId, WrongPassword}, AppCtx),
     find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => WrongUserId}),
+               ?assertEqual(Value, #{<<"_id">> => WrongUserId,
+                                     <<"status">> => <<"active">>}),
                #{}
            end),
-    {error, notfound} =
-      oauth2_backend_mongopool:authenticate_user(
-        {WrongUserId, Password}, AppCtx)
+    % check notfound (user id doesn't exist)
+    {error, notfound} = oauth2_backend_mongopool:authenticate_user(
+        {WrongUserId, Password}, AppCtx),
+    UserNotActive = User#{<<"status">> => <<"register">>},
+    find_one(fun(fuu, _, Value) ->
+                 ?assertEqual(
+                    Value, #{<<"_id">> => maps:get(<<"_id">>, UserNotActive),
+                             <<"status">> => <<"active">>}),
+                 #{}
+           end),
+    % check notfound (user is not active)
+    {error, notfound} = oauth2_backend_mongopool:authenticate_user(
+        {UserId, Password}, AppCtx)
   end.
 
 authenticate_client_test(_SetupData) ->

@@ -98,7 +98,9 @@ is_authorized(AccessToken, GetObjectScope, AppCtx)
 -spec authenticate_user(user(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
 authenticate_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?USER_TABLE, #{<<"_id">> => UserId}) of
+  case mongopool_app:find_one(
+         Pool, ?USER_TABLE,
+         #{<<"_id">> => UserId, <<"status">> => <<"active">>}) of
     #{<<"password">> := Password} = Identity ->
       {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
     #{<<"password">> := _WrongPassword} -> {error, badpass};
