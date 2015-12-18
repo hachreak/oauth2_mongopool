@@ -47,7 +47,7 @@
 % API implementation
 
 -spec add_resowner(binary(), binary(), binary(), appctx()) ->
-  {ok, appctx()} | {error, term()}.
+  {ok, {appctx(), confirmator:token()}} | {error, term()}.
 add_resowner(UserId, Password, Email, AppCtx) ->
   add_resowner(UserId, Password, Email,
                [<< <<"users.">>/binary, UserId/binary >>], AppCtx).
