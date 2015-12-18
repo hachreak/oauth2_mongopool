@@ -112,15 +112,17 @@ confirm(UserId, Token, #{pool := Pool, cfgctx := CFGctx}=AppCtx) ->
 
 % @doc add a new scope to user.
 -spec add_resowner_scope(binary(), scope(), appctx()) ->
-  ok | {error, mismatch}.
+  {ok, appctx()} | {error, mismatch}.
 add_resowner_scope(UserId, Scope, AppCtx) when is_binary(Scope) ->
   add_resowner_scope(UserId, [Scope], AppCtx);
 add_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
   when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(UserId, AppCtx),
+  {ok,
+   {AppCtx1, #{<<"scope">> := CurrentScope}}} = get_resowner(UserId, AppCtx),
   MergedScopes = lists:umerge(CurrentScope, Scope),
   mongopool_app:update(Pool, ?USER_TABLE,
-                       #{<<"_id">> => UserId}, {<<"$set">>, MergedScopes});
+                       #{<<"_id">> => UserId}, {<<"$set">>, MergedScopes}),
+  {ok, AppCtx1};
 add_resowner_scope(_, _, _) -> {error, mismatch}.
 
 -spec delete_resowner(binary(), appctx()) -> {ok, appctx()} | {error, term()}.
