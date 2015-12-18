@@ -76,7 +76,7 @@
 %%      if auth fail, then raise an exception not_authorized else return ok.
 -spec is_authorized(oauth2:auth(), fun((grantctx()) -> scope()), appctx()) ->
   list() | no_return().
-% TODO can be improved?
+% TODO deprecated
 is_authorized(AccessToken, GetObjectScope, AppCtx)
   when is_function(GetObjectScope) ->
   case oauth2:verify_access_token(AccessToken, AppCtx) of
