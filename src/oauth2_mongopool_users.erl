@@ -147,12 +147,16 @@ get_resowner_scope(UserId, #{pool := Pool}=AppCtx) ->
   end.
 
 % @doc remove a scope from user.
--spec remove_resowner_scope(binary(), scope(), appctx()) -> ok.
+-spec remove_resowner_scope(binary(), scope(), appctx()) ->
+  {ok, appctx()} | {error, term()}.
 remove_resowner_scope(UserId, Scope, AppCtx) when is_binary(Scope) ->
   remove_resowner_scope(UserId, [Scope], AppCtx);
 remove_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
   when is_list(Scope) ->
-  {ok, #{<<"scope">> := CurrentScope}} = get_resowner(UserId, AppCtx),
+  {ok,
+   {AppCtx1, #{<<"scope">> := CurrentScope}}} = get_resowner(UserId, AppCtx),
   RemovedScopes = lists:subtract(CurrentScope, Scope),
   mongopool_app:update(Pool, ?USER_TABLE,
-                       #{<<"_id">> => UserId}, {<<"$set">>, RemovedScopes}).
+                       #{<<"_id">> => UserId}, {<<"$set">>, RemovedScopes}),
+  {ok, AppCtx1};
+remove_resowner_scope(_, _, _) -> {error, mismatch}.
