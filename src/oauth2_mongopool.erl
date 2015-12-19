@@ -1,5 +1,6 @@
 -module('oauth2_mongopool').
 
+% FIXME deprecated!
 -behaviour(application).
 
 %% API exports
@@ -16,9 +17,7 @@
 -spec start(application:start_type(), term()) ->
     ok | {error, term()}.
 start(_StartType, _StartArgs) ->
-  application:ensure_all_started(mongopool),
-  application:ensure_all_started(confirmator_mongopool),
-  application:ensure_all_started(pushmail).
+  ok.
 
 -spec stop(term()) -> ok.
 stop(_State) ->
@@ -31,6 +30,9 @@ init() ->
 
 -spec init(binary()) -> {ok, appctx()} | {error, term()}.
 init(Pool) ->
+  application:ensure_all_started(mongopool),
+  application:ensure_all_started(confirmator_mongopool),
+  application:ensure_all_started(pushmail),
   {ok, CFGctx} = confirmator:init(),
   {ok, PMctx} = pushmail:start(),
   {ok, #{pool => Pool, cfgctx => CFGctx, pmctx => PMctx}}.
