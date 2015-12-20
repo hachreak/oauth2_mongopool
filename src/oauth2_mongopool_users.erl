@@ -31,7 +31,8 @@
          get_resowner_scope/2,
          remove_resowner_scope/3,
          send_confirmation/2,
-         confirm/3
+         confirm/3,
+         is_active/1
         ]).
 
 % FIXME use the application environment
@@ -160,3 +161,7 @@ remove_resowner_scope(UserId, Scope, #{pool := Pool}=AppCtx)
                        #{<<"_id">> => UserId}, {<<"$set">>, RemovedScopes}),
   {ok, AppCtx1};
 remove_resowner_scope(_, _, _) -> {error, mismatch}.
+
+-spec is_active(map()) -> boolean().
+is_active(#{<<"status">> := <<"active">>}) -> true;
+is_active(_User) -> false.
