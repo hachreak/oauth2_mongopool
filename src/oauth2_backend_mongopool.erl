@@ -55,11 +55,12 @@
         ]).
 
 %%% Tables
--define(USER_TABLE, users).
--define(CLIENT_TABLE, clients).
 -define(ACCESS_CODE_TABLE, access_codes).
 -define(ACCESS_TOKEN_TABLE, access_tokens).
 -define(REFRESH_TOKEN_TABLE, refresh_tokens).
+
+%%% Macros ===========================================================
+-define(BACKEND, (oauth2_mongopool_config:backend())).
 
 %%%_ * Types -----------------------------------------------------------
 
@@ -97,24 +98,18 @@ is_authorized(AccessToken, GetObjectScope, AppCtx)
 
 -spec authenticate_user(user(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
-authenticate_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(
-         Pool, ?USER_TABLE,
-         #{<<"_id">> => UserId, <<"status">> => <<"active">>}) of
-    #{<<"password">> := Password} = Identity ->
-      {ok, {AppCtx, Identity#{<<"password">> := undefined}}};
-    #{<<"password">> := _WrongPassword} -> {error, badpass};
-    _Rest -> {error, notfound}
+authenticate_user({_UserId, _Password}=User, AppCtx) ->
+  case ?BACKEND:get_user(User, AppCtx) of
+    {ok, _}=Success -> Success;
+    {error, _} -> {error, notfound}
   end.
 
 -spec authenticate_client(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
-authenticate_client({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
-    #{<<"client_secret">> := ClientSecret}=Identity ->
-      {ok, {AppCtx, Identity#{<<"client_secret">> := undefined}}};
-    #{<<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
-    _Rest -> {error, notfound}
+authenticate_client({_ClientId, _ClientSecret}=Client, AppCtx) ->
+  case ?BACKEND:get_client(Client, AppCtx) of
+    {ok, _}=Success -> Success;
+    {error, _} -> {error, notfound}
   end.
 
 -spec associate_refresh_token(token(), grantctx(), appctx()) ->
@@ -197,12 +192,8 @@ revoke_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
 
 -spec get_client_identity(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
-get_client_identity(ClientId, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?CLIENT_TABLE, #{<<"_id">> => ClientId}) of
-    #{<<"_id">> := ClientId}=Identity ->
-      {ok, {AppCtx, Identity#{<<"client_secret">> => undefined}}};
-    _Rest -> {error, notfound}
-  end.
+get_client_identity(ClientId, AppCtx) ->
+  ?BACKEND:get_client_identity(ClientId, AppCtx).
 
 -spec verify_redirection_uri(client(), binary(), appctx()) ->
   {ok, appctx()} | {error, notfound | baduri}.
