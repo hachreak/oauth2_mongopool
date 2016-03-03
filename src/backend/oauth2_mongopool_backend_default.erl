@@ -25,24 +25,25 @@
 -behaviour(oauth2_mongopool_backend).
 
 % behaviour API
--export([get_user/2, get_client_identity/2, get_client/2]).
+-export([authenticate_user/3, get_client/2, authenticate_client/3]).
 
-% API
--export([create_user/2, create_client/2]).
+% extra API
+-export([create_user/3, create_client/3]).
 
 -type appctx()   :: oauth2:appctx().
--type user()     :: oauth2:user().
--type client()   :: oauth2:client().
--type clientid() :: binary().
+-type userid()   :: oauth2_mongopool_backend:userid().
+-type password() :: oauth2_mongopool_backend:password().
+-type clientid() :: oauth2_mongopool_backend:clientid().
+-type secret()   :: oauth2_mongopool_backend:secret().
 
 -define(USERS_TABLE, users).
 -define(CLIENTS_TABLE, clients).
 
 %%% Backend API
 
--spec get_user(user(), appctx()) ->
+-spec authenticate_user(userid(), password(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
-get_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
+authenticate_user(UserId, Password, #{pool := Pool}=AppCtx) ->
   case mongopool_app:find_one(
         Pool, ?USERS_TABLE, #{<<"_id">> => UserId}) of
     #{<<"_id">> := UserId, <<"password">> := Password}=Identity ->
@@ -52,9 +53,9 @@ get_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
     _Rest -> {error, notfound}
   end.
 
--spec get_client_identity(clientid(), appctx()) ->
+-spec get_client(clientid(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound}.
-get_client_identity(ClientId, #{pool := Pool}=AppCtx) ->
+get_client(ClientId, #{pool := Pool}=AppCtx) ->
   case mongopool_app:find_one(
         Pool, ?CLIENTS_TABLE, #{<<"_id">> => ClientId}) of
     #{<<"_id">> := ClientId}=Identity ->
@@ -62,10 +63,10 @@ get_client_identity(ClientId, #{pool := Pool}=AppCtx) ->
     _Rest -> {error, notfound}
   end.
 
--spec get_client(client(), appctx()) ->
+-spec authenticate_client(clientid(), secret(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
-get_client({ClientId, ClientSecret}, AppCtx) ->
-  case get_client_identity(ClientId, AppCtx) of
+authenticate_client(ClientId, ClientSecret, AppCtx) ->
+  case get_client(ClientId, AppCtx) of
     {ok, {_, #{<<"client_secret">> := ClientSecret}}}=Result -> Result;
     {ok, {_, #{<<"client_secret">> := _WrongClientSecret}}} ->
       {error, badpass};
@@ -74,20 +75,16 @@ get_client({ClientId, ClientSecret}, AppCtx) ->
 
 %%% API
 
--spec create_user(user(), appctx()) -> {ok, appctx()} | {error, term()}.
-create_user({UserId, Password}, #{pool := Pool}=AppCtx) ->
-  User = #{
-    <<"_id">> => UserId,
-    <<"password">> => Password
-  },
+-spec create_user(userid(), password(), appctx()) ->
+  {ok, appctx()} | {error, term()}.
+create_user(UserId, Password, #{pool := Pool}=AppCtx) ->
+  User = #{<<"_id">> => UserId, <<"password">> => Password},
   mongopool_app:insert(Pool, ?USERS_TABLE, User),
   {ok, AppCtx}.
 
--spec create_client(client(), appctx()) -> {ok, appctx()} | {error, term()}.
-create_client({ClientId, ClientSecret}, #{pool := Pool}=AppCtx) ->
-  Client = #{
-    <<"_id">> => ClientId,
-    <<"client_secret">> => ClientSecret
-  },
+-spec create_client(clientid(), password(), appctx()) ->
+  {ok, appctx()} | {error, term()}.
+create_client(ClientId, ClientSecret, #{pool := Pool}=AppCtx) ->
+  Client = #{<<"_id">> => ClientId, <<"client_secret">> => ClientSecret},
   mongopool_app:insert(Pool, ?CLIENTS_TABLE, Client),
   {ok, AppCtx}.

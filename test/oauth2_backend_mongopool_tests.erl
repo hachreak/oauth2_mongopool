@@ -49,6 +49,8 @@ oauth2_backend_mongopool_test_() ->
 start() ->
   meck:new(mongopool_app, [no_link, passthrough, no_history, non_strict]),
   application:set_env(oauth2, backend, oauth2_backend_mongopool).
+  % application:set_env(
+  %   oauth2_mongopool, backend, oauth2_mongopool_backend_default).
 
 find_one(Fun) when is_function(Fun) ->
   meck:expect(mongopool_app, find_one, 3, Fun);

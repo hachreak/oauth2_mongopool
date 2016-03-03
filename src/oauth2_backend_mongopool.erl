@@ -98,16 +98,16 @@ is_authorized(AccessToken, GetObjectScope, AppCtx)
 
 -spec authenticate_user(user(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
-authenticate_user({_UserId, _Password}=User, AppCtx) ->
-  case ?BACKEND:get_user(User, AppCtx) of
+authenticate_user({UserId, Password}, AppCtx) ->
+  case ?BACKEND:authenticate_user(UserId, Password, AppCtx) of
     {ok, _}=Success -> Success;
     {error, _} -> {error, notfound}
   end.
 
 -spec authenticate_client(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
-authenticate_client({_ClientId, _ClientSecret}=Client, AppCtx) ->
-  case ?BACKEND:get_client(Client, AppCtx) of
+authenticate_client({ClientId, ClientSecret}, AppCtx) ->
+  case ?BACKEND:authenticate_client(ClientId, ClientSecret, AppCtx) of
     {ok, _}=Success -> Success;
     {error, _} -> {error, notfound}
   end.
@@ -193,7 +193,7 @@ revoke_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
 -spec get_client_identity(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
 get_client_identity(ClientId, AppCtx) ->
-  ?BACKEND:get_client_identity(ClientId, AppCtx).
+  ?BACKEND:get_client(ClientId, AppCtx).
 
 -spec verify_redirection_uri(client(), binary(), appctx()) ->
   {ok, appctx()} | {error, notfound | baduri}.

@@ -24,16 +24,19 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--type appctx()   :: oauth2:appctx().
--type user()     :: oauth2:user().
--type client()   :: oauth2:client().
--type clientid() :: binary().
+-export_type([userid/0, password/0, clientid/0, secret/0]).
 
--callback get_user(user(), appctx()) ->
+-type appctx()   :: oauth2:appctx().
+-type userid()   :: binary().
+-type password() :: binary().
+-type clientid() :: binary().
+-type secret()   :: binary().
+
+-callback authenticate_user(userid(), password(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
 
--callback get_client_identity(clientid(), appctx()) ->
+-callback get_client(clientid(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound}.
 
--callback get_client(client(), appctx()) ->
+-callback authenticate_client(clientid(), secret(), appctx()) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
