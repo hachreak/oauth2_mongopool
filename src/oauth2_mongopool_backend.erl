@@ -26,7 +26,7 @@
 
 -export_type([userid/0, password/0, clientid/0, secret/0]).
 
--type appctx()   :: oauth2:appctx().
+-type appctx()   :: oauth2_mongopool:appctx().
 -type userid()   :: binary().
 -type password() :: binary().
 -type clientid() :: binary().

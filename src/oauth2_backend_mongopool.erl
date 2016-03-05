@@ -64,8 +64,8 @@
 
 %%%_ * Types -----------------------------------------------------------
 
+-type appctx()   :: oauth2_mongopool:appctx().
 -type user()     :: oauth2:user().
--type appctx()   :: oauth2:appctx().
 -type client()   :: oauth2:client().
 -type token()    :: oauth2:token().
 -type grantctx() :: oauth2:grantctx().

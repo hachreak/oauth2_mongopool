@@ -30,7 +30,7 @@
 % extra API
 -export([create_user/3, create_client/3]).
 
--type appctx()   :: oauth2:appctx().
+-type appctx()   :: oauth2_mongopool:appctx().
 -type userid()   :: oauth2_mongopool_backend:userid().
 -type password() :: oauth2_mongopool_backend:password().
 -type clientid() :: oauth2_mongopool_backend:clientid().
@@ -67,10 +67,10 @@ get_client(ClientId, #{pool := Pool}=AppCtx) ->
   {ok, {appctx(), term()}} | {error, notfound | badpass}.
 authenticate_client(ClientId, ClientSecret, AppCtx) ->
   case get_client(ClientId, AppCtx) of
-    {ok, {_, #{<<"client_secret">> := ClientSecret}}}=Result -> Result;
+    {ok, {_, #{<<"client_secret">> := ClientSecret}}=Return} -> {ok, Return};
     {ok, {_, #{<<"client_secret">> := _WrongClientSecret}}} ->
       {error, badpass};
-    Rest -> Rest
+    _Rest -> {error, notfound}
   end.
 
 %%% API
