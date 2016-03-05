@@ -26,16 +26,6 @@ Configuration
       ]}
     ]}
   ]},
-  {confirmator, [
-    {backend, confirmator_mongopool}
-  ]},
-  {confirmator_mongopool, [
-    {pool, mypool},
-    {table, <<"confirmator">>}
-  ]},
-  {pushmail, [
-    {backend, pushmail_backend_error_logger}
-  ]},
   {oauth2_mongopool, [
     {pool, mypool}
   ]},

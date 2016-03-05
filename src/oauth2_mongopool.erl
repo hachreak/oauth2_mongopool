@@ -31,11 +31,7 @@ init() ->
 -spec init(binary()) -> {ok, appctx()} | {error, term()}.
 init(Pool) ->
   application:ensure_all_started(mongopool),
-  application:ensure_all_started(confirmator_mongopool),
-  application:ensure_all_started(pushmail),
-  {ok, CFGctx} = confirmator:init(),
-  {ok, PMctx} = pushmail:start(),
-  {ok, #{pool => Pool, cfgctx => CFGctx, pmctx => PMctx}}.
+  {ok, #{pool => Pool}}.
 
 %%====================================================================
 %% Internal functions
