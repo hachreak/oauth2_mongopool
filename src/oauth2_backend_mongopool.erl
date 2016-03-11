@@ -230,7 +230,6 @@ verify_scope(_RegisteredScope, [], AppCtx) ->
 verify_scope([], _Scope, _AppContext) ->
   {error, badscope};
 verify_scope(RegisteredScope, Scope, AppCtx) ->
-  io:format("verify_scope: ~p ~p~n", [RegisteredScope, Scope]),
   case oauth2_priv_set:is_subset(oauth2_priv_set:new(RegisteredScope),
                                  oauth2_priv_set:new(Scope)) of
     true -> {ok, {AppCtx, Scope}};
