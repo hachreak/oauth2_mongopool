@@ -64,12 +64,15 @@ get_client(ClientId, #{pool := Pool}=AppCtx) ->
   end.
 
 -spec authenticate_client(clientid(), secret(), appctx()) ->
-  {ok, {appctx(), term()}} | {error, notfound | badpass}.
-authenticate_client(ClientId, ClientSecret, AppCtx) ->
-  case get_client(ClientId, AppCtx) of
-    {ok, {_, #{<<"client_secret">> := ClientSecret}}=Return} -> {ok, Return};
-    {ok, {_, #{<<"client_secret">> := _WrongClientSecret}}} ->
-      {error, badpass};
+  {ok, {appctx(), term()}} | {error, notfound | badsecret}.
+authenticate_client(ClientId, ClientSecret, #{pool := Pool}=AppCtx) ->
+  case mongopool_app:find_one(
+        Pool, ?CLIENTS_TABLE, #{<<"_id">> => ClientId}) of
+    #{<<"_id">> := ClientId,
+      <<"client_secret">> := ClientSecret}=Identity ->
+       {ok, {AppCtx, Identity#{<<"client_secret">> => undefined}}};
+    #{<<"_id">> := ClientId,
+      <<"client_secret">> := _WrongClientSecret} -> {error, badsecret};
     _Rest -> {error, notfound}
   end.
 

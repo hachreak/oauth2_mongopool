@@ -333,10 +333,10 @@ authenticate_user_test(_SetupData) ->
     WrongPassword = <<"wrong-password">>,
     User = #{<<"_id">> => UserId, <<"password">> => Password,
              <<"status">> => <<"active">>},
-    AppCtx = #{pool => fuu},
+    AppCtx = #{pool => fuu, backendctx => #{pool => fuu}},
     find_one(fun(fuu, _, Value) ->
                ?assertEqual(
-                  Value, #{<<"_id">> => UserId, <<"status">> => <<"active">>}),
+                  #{<<"_id">> => UserId}, Value),
                User
            end),
     % check ok
@@ -347,8 +347,7 @@ authenticate_user_test(_SetupData) ->
       oauth2_backend_mongopool:authenticate_user(
         {UserId, WrongPassword}, AppCtx),
     find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => WrongUserId,
-                                     <<"status">> => <<"active">>}),
+               ?assertEqual(#{<<"_id">> => WrongUserId}, Value),
                #{}
            end),
     % check notfound (user id doesn't exist)
@@ -357,8 +356,7 @@ authenticate_user_test(_SetupData) ->
     UserNotActive = User#{<<"status">> => <<"register">>},
     find_one(fun(fuu, _, Value) ->
                  ?assertEqual(
-                    Value, #{<<"_id">> => maps:get(<<"_id">>, UserNotActive),
-                             <<"status">> => <<"active">>}),
+                    #{<<"_id">> => maps:get(<<"_id">>, UserNotActive)}, Value),
                  #{}
            end),
     % check notfound (user is not active)
@@ -373,9 +371,9 @@ authenticate_client_test(_SetupData) ->
     WrongUserId = <<"wrong-client-id">>,
     WrongClientSecret = <<"wrong-client_secret">>,
     Client = #{<<"_id">> => ClientId, <<"client_secret">> => ClientSecret},
-    AppCtx = #{pool => fuu},
+    AppCtx = #{pool => fuu, backendctx => #{pool => fuu}},
     find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => ClientId}),
+               ?assertEqual(#{<<"_id">> => ClientId}, Value),
                Client
            end),
     {ok, {AppCtx, #{<<"client_secret">> := undefined}}} =
@@ -399,15 +397,15 @@ get_client_identity_test(_SetupData) ->
     ClientSecret = <<"test-client_secret">>,
     WrongUserId = <<"wrong-client-id">>,
     Client = #{<<"_id">> => ClientId, <<"client_secret">> => ClientSecret},
-    AppCtx = #{pool => fuu},
+    AppCtx = #{pool => fuu, backendctx => #{pool => fuu}},
     find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => ClientId}),
+               ?assertEqual(#{<<"_id">> => ClientId}, Value),
                Client
            end),
     {ok, {AppCtx, #{<<"client_secret">> := undefined}}} =
       oauth2_backend_mongopool:get_client_identity(ClientId, AppCtx),
     find_one(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"_id">> => WrongUserId}),
+               ?assertEqual(#{<<"_id">> => WrongUserId}, Value),
                #{}
            end),
     {error, notfound} =
