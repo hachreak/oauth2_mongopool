@@ -22,10 +22,11 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([authorize_code_retrieval/2]).
+-export([resolve_auth_codes/2, resolve_access_tokens/2]).
 
 %%% Tables
 -define(ACCESS_CODE_TABLE, access_codes).
+-define(ACCESS_TOKEN_TABLE, access_tokens).
 
 %%% Macros ===========================================================
 -define(BACKEND, (oauth2_mongopool_config:backend())).
@@ -33,29 +34,24 @@
 %%%_ * Types -----------------------------------------------------------
 
 -type appctx()   :: oauth2_mongopool:appctx().
--type client()   :: oauth2:client().
 -type clientid() :: oauth2_mongopool_backend:clientid().
 -type token()    :: oauth2:token().
 
 %%%_ * Functions -------------------------------------------------------
 
+-spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
+resolve_auth_codes(ClientId, AppCtx) ->
+  resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx).
 
--spec authorize_code_retrieval(client(), appctx()) ->
-    {ok, {appctx(), list(token())}} | {error, not_authorized}.
-authorize_code_retrieval({ClientId, ClientSecret},
-                         #{backendctx := BackendCtx}=AppCtx) ->
-  case ?BACKEND:authenticate_client(ClientId, ClientSecret, BackendCtx) of
-    {error, _ErrorType} -> {error, not_authorized};
-    {ok, {_BackendCtx, Client}} ->
-      {ok, {AppCtx, resolve_all_access_code(
-                      maps:get(<<"_id">>, Client), AppCtx)}}
-  end.
+-spec resolve_access_tokens(clientid(), appctx()) -> list(token()).
+resolve_access_tokens(ClientId, AppCtx) ->
+  resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx).
 
 
 %% Private functions
 
--spec resolve_all_access_code(clientid(), appctx()) -> list(token()).
-resolve_all_access_code(ClientId, #{pool := Pool}) ->
-  Cursor = mongopool_app:find(Pool, ?ACCESS_CODE_TABLE,
+-spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
+resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
+  Cursor = mongopool_app:find(Pool, Table,
                               #{<<"grant.client._id">> => ClientId}),
   [Token || #{<<"token">> := Token} <- mc_cursor:rest(Cursor)].
