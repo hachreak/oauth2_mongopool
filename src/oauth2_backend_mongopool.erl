@@ -155,8 +155,6 @@ resolve_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
   case mongopool_app:find_one(Pool, ?ACCESS_CODE_TABLE,
                               #{<<"token">> => AccessCode}) of
     #{<<"token">> := AccessCode, <<"grant">> := Grant} ->
-      io:format("resolve_access_code: ~p~n",
-                [oauth2_mongopool_utils:dbMap2OAuth2List(Grant)]),
       {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
     _Rest -> {error, notfound}
   end.
