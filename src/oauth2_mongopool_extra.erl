@@ -67,7 +67,7 @@ resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
     Pool, Table,
     {'$query', {'$and', [
       {<<"grant.client._id">>, ClientId},
-      {<<"grant.2.expiry_time">>, {'$gt', get_now()}}
+      {<<"grant.expiry_time">>, {'$gt', get_now()}}
     ]}}
   ),
   mc_cursor:rest(Cursor).
