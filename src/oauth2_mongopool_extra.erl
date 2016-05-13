@@ -22,11 +22,16 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([resolve_auth_codes/2, resolve_access_tokens/2]).
+-export([
+         resolve_auth_codes/2,
+         resolve_access_tokens/2,
+         resolve_refresh_tokens/2
+        ]).
 
 %%% Tables
 -define(ACCESS_CODE_TABLE, access_codes).
 -define(ACCESS_TOKEN_TABLE, access_tokens).
+-define(REFRESH_TOKEN_TABLE, refresh_tokens).
 
 %%% Macros ===========================================================
 -define(BACKEND, (oauth2_mongopool_config:backend())).
@@ -46,6 +51,10 @@ resolve_auth_codes(ClientId, AppCtx) ->
 -spec resolve_access_tokens(clientid(), appctx()) -> list(token()).
 resolve_access_tokens(ClientId, AppCtx) ->
   resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx).
+
+-spec resolve_refresh_tokens(clientid(), appctx()) -> list(token()).
+resolve_refresh_tokens(ClientId, AppCtx) ->
+  resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx).
 
 
 %% Private functions
