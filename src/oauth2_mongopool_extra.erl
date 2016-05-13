@@ -46,15 +46,17 @@
 
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
 resolve_auth_codes(ClientId, AppCtx) ->
-  resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx).
+  extract_auth_codes(resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx)).
 
 -spec resolve_access_tokens(clientid(), appctx()) -> list(token()).
 resolve_access_tokens(ClientId, AppCtx) ->
-  resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx).
+  extract_access_tokens(
+    resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx)).
 
 -spec resolve_refresh_tokens(clientid(), appctx()) -> list(token()).
 resolve_refresh_tokens(ClientId, AppCtx) ->
-  resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx).
+  extract_refresh_tokens(
+    resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx)).
 
 
 %% Private functions
@@ -68,6 +70,30 @@ resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
       {<<"grant.2.expiry_time">>, {'$gt', get_now()}}
     ]}}
   ),
+  mc_cursor:rest(Cursor).
+
+-spec get_now() -> non_neg_integer().
+get_now() ->
+    {Mega, Secs, _} = os:timestamp(),
+    Mega * 1000000 + Secs.
+
+-spec extract_access_tokens(list()) -> list().
+extract_access_tokens(Tokens) ->
+  [#{
+     <<"expiry_time">> => ExpiryTime,
+     <<"scope">> => Scope,
+     <<"token">> => Token
+    } || #{
+      <<"grant">> := [
+        _, _, _,
+        #{<<"expiry_time">> := ExpiryTime},
+        #{<<"scope">> := Scope}
+      ],
+       <<"token">> := Token
+    } <- Tokens].
+
+-spec extract_refresh_tokens(list()) -> list().
+extract_refresh_tokens(Tokens) ->
   [#{
      <<"expiry_time">> => ExpiryTime,
      <<"scope">> => Scope,
@@ -79,9 +105,8 @@ resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
         #{<<"scope">> := Scope}
       ],
        <<"token">> := Token
-    } <- mc_cursor:rest(Cursor)].
+    } <- Tokens].
 
--spec get_now() -> non_neg_integer().
-get_now() ->
-    {Mega, Secs, _} = os:timestamp(),
-    Mega * 1000000 + Secs.
+-spec extract_auth_codes(list()) -> list().
+extract_auth_codes(Tokens) ->
+  extract_refresh_tokens(Tokens).
