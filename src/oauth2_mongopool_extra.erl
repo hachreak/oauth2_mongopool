@@ -52,6 +52,16 @@ resolve_access_tokens(ClientId, AppCtx) ->
 
 -spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
 resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
-  Cursor = mongopool_app:find(Pool, Table,
-                              #{<<"grant.client._id">> => ClientId}),
+  Cursor = mongopool_app:find(
+    Pool, Table,
+    {'$query', {'$and', [
+      {<<"grant.client._id">>, ClientId},
+      {<<"grant.2.expiry_time">>, {'$gt', get_now()}}
+    ]}}
+  ),
   [Token || #{<<"token">> := Token} <- mc_cursor:rest(Cursor)].
+
+-spec get_now() -> non_neg_integer().
+get_now() ->
+    {Mega, Secs, _} = os:timestamp(),
+    Mega * 1000000 + Secs.
