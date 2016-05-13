@@ -68,7 +68,18 @@ resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
       {<<"grant.2.expiry_time">>, {'$gt', get_now()}}
     ]}}
   ),
-  [Token || #{<<"token">> := Token} <- mc_cursor:rest(Cursor)].
+  [#{
+     <<"expiry_time">> => ExpiryTime,
+     <<"scope">> => Scope,
+     <<"token">> => Token
+    } || #{
+      <<"grant">> := [
+        _, _,
+        #{<<"expiry_time">> := ExpiryTime},
+        #{<<"scope">> := Scope}
+      ],
+       <<"token">> := Token
+    } <- mc_cursor:rest(Cursor)].
 
 -spec get_now() -> non_neg_integer().
 get_now() ->
