@@ -82,7 +82,7 @@ extract_access_tokens(Tokens) ->
   [#{
      <<"expiry_time">> => ExpiryTime,
      <<"scope">> => Scope,
-     <<"token">> => Token
+     <<"token_access">> => Token
     } || #{
       <<"grant">> := [
         _, _, _,
@@ -97,7 +97,7 @@ extract_refresh_tokens(Tokens) ->
   [#{
      <<"expiry_time">> => ExpiryTime,
      <<"scope">> => Scope,
-     <<"token">> => Token
+     <<"token_refresh">> => Token
     } || #{
       <<"grant">> := [
         _, _,
@@ -109,4 +109,15 @@ extract_refresh_tokens(Tokens) ->
 
 -spec extract_auth_codes(list()) -> list().
 extract_auth_codes(Tokens) ->
-  extract_refresh_tokens(Tokens).
+  [#{
+     <<"expiry_time">> => ExpiryTime,
+     <<"scope">> => Scope,
+     <<"token_auth">> => Token
+    } || #{
+      <<"grant">> := [
+        _, _,
+        #{<<"expiry_time">> := ExpiryTime},
+        #{<<"scope">> := Scope}
+      ],
+       <<"token">> := Token
+    } <- Tokens].
