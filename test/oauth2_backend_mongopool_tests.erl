@@ -28,10 +28,6 @@ oauth2_backend_mongopool_test_() ->
     fun stop/1,
     fun (SetupData) ->
         [
-         is_authorized_fail_expiry_time(SetupData),
-         is_authorized_fail_scope(SetupData),
-         is_authorized_ok_pass_1(SetupData),
-         is_authorized_ok_pass_2(SetupData),
          verify_scope_test(SetupData),
          associate_refresh_token_test(SetupData),
          associate_access_token_test(SetupData),
@@ -49,8 +45,6 @@ oauth2_backend_mongopool_test_() ->
 start() ->
   meck:new(mongopool_app, [no_link, passthrough, no_history, non_strict]),
   application:set_env(oauth2, backend, oauth2_backend_mongopool).
-  % application:set_env(
-  %   oauth2_mongopool, backend, oauth2_mongopool_backend_default).
 
 find_one(Fun) when is_function(Fun) ->
   meck:expect(mongopool_app, find_one, 3, Fun);
@@ -68,126 +62,6 @@ delete(Return) ->
 stop(_Pid) ->
   meck:validate(mongopool_app),
   meck:unload(mongopool_app).
-
-is_authorized_fail_expiry_time(_SetupData) ->
-  fun() ->
-      PermittedScope = <<"users.test.boxes">>,
-      GetObjectScope = fun(_) -> [<<"users.test.boxes">>] end,
-      DiffExpiryTime = -1,
-      % prepare
-      {Mega, Secs, _} = os:timestamp(),
-      ExpiryTime = Mega * 1000000 + Secs + DiffExpiryTime,
-      AccessToken = <<"test-ist-auth-access-token">>,
-      Context = [
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"expiry_time">> => ExpiryTime},
-                 #{<<"">> => ""},
-                 #{<<"scope">> => [PermittedScope]}
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"">> => ""}
-                ],
-      find_one(#{<<"token">> => AccessToken, <<"grant">> => Context}),
-      AppCtx = #{pool => fuu},
-      delete(fun(fuu, _, Value) ->
-              ?assertEqual(Value, #{<<"token">> => AccessToken})
-             end),
-      ?assertException(
-         throw, not_authorized,
-         oauth2_backend_mongopool:is_authorized(
-           AccessToken, GetObjectScope, AppCtx))
-  end.
-
-is_authorized_fail_scope(_SetupData) ->
-  fun() ->
-      PermittedScope = <<"users.test.boxes">>,
-      GetObjectScope = fun(_) -> [<<"users.test">>] end,
-      DiffExpiryTime = 1000000,
-      % prepare
-      {Mega, Secs, _} = os:timestamp(),
-      ExpiryTime = Mega * 1000000 + Secs + DiffExpiryTime,
-      AccessToken = <<"test-ist-auth-access-token">>,
-      Context = [
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"expiry_time">> => ExpiryTime},
-                 #{<<"">> => ""},
-                 #{<<"scope">> => [PermittedScope]}
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"">> => ""}
-                ],
-      AppCtx = #{pool => fuu},
-      find_one(#{<<"token">> => AccessToken, <<"grant">> => Context}),
-      delete(fun(fuu, _, Value) ->
-              ?assertEqual(Value, #{<<"token">> => AccessToken})
-             end),
-      ?assertException(
-         throw, not_authorized,
-         oauth2_backend_mongopool:is_authorized(
-           AccessToken, GetObjectScope, AppCtx))
-  end.
-
-is_authorized_ok_pass_1(_SetupData) ->
-  fun() ->
-      PermittedScope = <<"users.test.boxes">>,
-      GetObjectScope = fun(_) -> [<<"users.test.boxes.fuu">>] end,
-      DiffExpiryTime = 1000000,
-      % prepare
-      {Mega, Secs, _} = os:timestamp(),
-      ExpiryTime = Mega * 1000000 + Secs + DiffExpiryTime,
-      AccessToken = <<"test-ist-auth-access-token">>,
-      Context = [
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"expiry_time">> => ExpiryTime},
-                 #{<<"">> => ""},
-                 #{<<"scope">> => [PermittedScope]}
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"">> => ""}
-                ],
-      AppCtx = #{pool => fuu},
-      find_one(#{<<"token">> => AccessToken, <<"grant">> => Context}),
-      delete(fun(fuu, _, Value) ->
-              ?assertEqual(Value, #{<<"token">> => AccessToken})
-             end),
-      ?assertEqual(
-         oauth2_mongopool_utils:dbMap2OAuth2List(Context),
-         oauth2_backend_mongopool:is_authorized(
-           AccessToken, GetObjectScope, AppCtx))
-  end.
-
-is_authorized_ok_pass_2(_SetupData) ->
-  fun() ->
-      PermittedScope = <<"users.test.boxes">>,
-      GetObjectScope = fun(_) -> [<<"users.test.boxes">>] end,
-      DiffExpiryTime = 1000000,
-      % prepare
-      {Mega, Secs, _} = os:timestamp(),
-      ExpiryTime = Mega * 1000000 + Secs + DiffExpiryTime,
-      AccessToken = <<"test-ist-auth-access-token">>,
-      Context = [
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"expiry_time">> => ExpiryTime},
-                 #{<<"">> => ""},
-                 #{<<"scope">> => [PermittedScope]}
-                 #{<<"">> => ""},
-                 #{<<"">> => ""},
-                 #{<<"">> => ""}
-                ],
-      AppCtx = #{pool => fuu},
-      find_one(#{<<"token">> => AccessToken, <<"grant">> => Context}),
-      delete(fun(fuu, _, Value) ->
-              ?assertEqual(Value, #{<<"token">> => AccessToken})
-             end),
-      ?assertEqual(
-         oauth2_mongopool_utils:dbMap2OAuth2List(Context),
-         oauth2_backend_mongopool:is_authorized(
-           AccessToken, GetObjectScope, AppCtx))
-  end.
 
 verify_scope_test(_) ->
   fun() ->

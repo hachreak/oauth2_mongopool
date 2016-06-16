@@ -50,8 +50,7 @@
          verify_client_scope/3,
          verify_redirection_uri/3,
          verify_resowner_scope/3,
-         verify_scope/3,
-         is_authorized/3
+         verify_scope/3
         ]).
 
 %%% Tables
@@ -72,27 +71,6 @@
 -type scope()    :: oauth2:scope().
 
 % API implementation
-
-%% @doc check object authorization
-%%      if auth fail, then raise an exception not_authorized else return ok.
--spec is_authorized(oauth2:auth(), fun((grantctx()) -> scope()), appctx()) ->
-  list() | no_return().
-% TODO deprecated
-is_authorized(AccessToken, GetObjectScope, AppCtx)
-  when is_function(GetObjectScope) ->
-  case oauth2:verify_access_token(AccessToken, AppCtx) of
-    {ok, {_AppCtx, GrantCtx}} ->
-      case lists:keyfind(<<"scope">>, 1, GrantCtx) of
-        {<<"scope">>, PermittedScope} ->
-          case verify_scope(
-                 PermittedScope, GetObjectScope(GrantCtx), undefined) of
-            {ok, {_AppCtxt, _VerifiedScope}} -> GrantCtx;
-            {error, _ErrorType} -> throw(not_authorized)
-          end;
-        false -> throw(not_authorized)
-      end;
-    {error, _ErrorType} -> throw(not_authorized)
-  end.
 
 %%% Oauth2 Backend API implementation
 
