@@ -206,8 +206,9 @@ verify_scope(_RegisteredScope, [], AppCtx) ->
 verify_scope([], _Scope, _AppContext) ->
   {error, badscope};
 verify_scope(RegisteredScope, Scope, AppCtx) ->
-  case oauth2_priv_set:is_subset(oauth2_priv_set:new(RegisteredScope),
-                                 oauth2_priv_set:new(Scope)) of
+  case oauth2_scope_strategy_fq:verify_scope(
+         oauth2_scope_strategy_fq:explode(Scope),
+         oauth2_scope_strategy_fq:explode(RegisteredScope)) of
     true -> {ok, {AppCtx, Scope}};
     false -> {error, badscope}
   end.
