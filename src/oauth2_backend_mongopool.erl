@@ -199,16 +199,17 @@ verify_resowner_scope(#{<<"scope">> := RegisteredScope}, Scope, AppCtx) ->
 
 -spec verify_scope(scope(), scope(), appctx()) ->
   {ok, {appctx(), scope()}} | {error, notfound | badscope}.
-verify_scope(RegisteredScope, undefined, AppCtx) ->
-  {ok, {AppCtx, RegisteredScope}};
-verify_scope(_RegisteredScope, [], AppCtx) ->
-  {ok, {AppCtx, []}};
-verify_scope([], _Scope, _AppContext) ->
+verify_scope(_RegisteredScope, undefined, _AppCtx) ->
+  {error, badscope};
+verify_scope(_RegisteredScope, [], _AppCtx) ->
+  {error, badscope};
+verify_scope([], _Scope, _AppCtx) ->
   {error, badscope};
 verify_scope(RegisteredScope, Scope, AppCtx) ->
+  FQScopes = oauth2_scope_strategy_fq:explode(Scope),
   case oauth2_scope_strategy_fq:verify_scope(
-         oauth2_scope_strategy_fq:explode(Scope),
+         FQScopes,
          oauth2_scope_strategy_fq:explode(RegisteredScope)) of
-    true -> {ok, {AppCtx, Scope}};
+    true -> {ok, {AppCtx, oauth2_scope_strategy_fq:implode(FQScopes)}};
     false -> {error, badscope}
   end.

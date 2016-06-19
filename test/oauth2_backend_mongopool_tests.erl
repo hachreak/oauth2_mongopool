@@ -65,27 +65,51 @@ stop(_Pid) ->
 
 verify_scope_test(_) ->
   fun() ->
-      ?assertEqual({ok, {undefined, [<<"users.testuser.boxes">>]}},
+      ?assertEqual({ok,{undefined,[<<"all.users.testuser.boxes">>]}},
                    oauth2_backend_mongopool:verify_scope(
                      [<<"users.testuser.boxes">>],
                      [<<"users.testuser.boxes">>],
                      undefined
                     )),
-      ?assertEqual({ok, {undefined, [<<"users.testuser.boxes">>]}},
+      ?assertEqual({error, badscope},
                    oauth2_backend_mongopool:verify_scope(
                      [<<"users.testuser.boxes">>],
                      undefined,
                      undefined
                     )),
-      ?assertEqual({ok, {undefined, []}},
+      ?assertEqual({error, badscope},
                    oauth2_backend_mongopool:verify_scope(
                      [<<"users.testuser.boxes">>],
                      [],
                      undefined
                     )),
-      ?assertEqual({ok, {undefined, [<<"users.testuser.boxes.fuu">>]}},
+      ?assertEqual({ok, {undefined, [<<"all.users.testuser.boxes.fuu">>]}},
                    oauth2_backend_mongopool:verify_scope(
                      [<<"users.testuser.boxes">>],
+                     [<<"users.testuser.boxes.fuu">>],
+                     undefined
+                    )),
+      ?assertEqual({ok, {undefined, [<<"read.users.testuser.boxes.fuu">>]}},
+                   oauth2_backend_mongopool:verify_scope(
+                     [<<"read.users.testuser.boxes">>],
+                     [<<"read.users.testuser.boxes.fuu">>],
+                     undefined
+                    )),
+      ?assertEqual({ok, {undefined, [<<"read.users.testuser.boxes.fuu">>]}},
+                   oauth2_backend_mongopool:verify_scope(
+                     [<<"all.users.testuser.boxes">>],
+                     [<<"read.users.testuser.boxes.fuu">>],
+                     undefined
+                    )),
+      ?assertEqual({error, badscope},
+                   oauth2_backend_mongopool:verify_scope(
+                     [<<"read.users.testuser.boxes">>],
+                     [<<"all.users.testuser.boxes.fuu">>],
+                     undefined
+                    )),
+      ?assertEqual({error, badscope},
+                   oauth2_backend_mongopool:verify_scope(
+                     [<<"read.users.testuser.boxes">>],
                      [<<"users.testuser.boxes.fuu">>],
                      undefined
                     )),
@@ -306,11 +330,12 @@ verify_client_scope_test(_SetupData) ->
     Scope = [<<"foo.bar">>],
     WrongScope = [<<"wrong.scope">>],
     Client = #{<<"scope">> => Scope},
-    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_client_scope(
+    FQScopes = [<<"all.foo.bar">>],
+    {ok, {AppCtx, FQScopes}} = oauth2_backend_mongopool:verify_client_scope(
                               Client, Scope, AppCtx),
-    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_client_scope(
+    {error, badscope} = oauth2_backend_mongopool:verify_client_scope(
                               Client, undefined, AppCtx),
-    {ok, {AppCtx, []}} = oauth2_backend_mongopool:verify_client_scope(
+    {error, badscope} = oauth2_backend_mongopool:verify_client_scope(
                               Client, [], AppCtx),
     {error, badscope} = oauth2_backend_mongopool:verify_client_scope(
                               Client, WrongScope, AppCtx),
@@ -324,11 +349,12 @@ verify_resowner_scope_test(_SetupData) ->
     Scope = [<<"foo.bar">>],
     WrongScope = [<<"wrong.scope">>],
     User = #{<<"scope">> => Scope},
-    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_resowner_scope(
+    FQScopes = [<<"all.foo.bar">>],
+    {ok, {AppCtx, FQScopes}} = oauth2_backend_mongopool:verify_resowner_scope(
                               User, Scope, AppCtx),
-    {ok, {AppCtx, Scope}} = oauth2_backend_mongopool:verify_resowner_scope(
+    {error, badscope} = oauth2_backend_mongopool:verify_resowner_scope(
                               User, undefined, AppCtx),
-    {ok, {AppCtx, []}} = oauth2_backend_mongopool:verify_resowner_scope(
+    {error, badscope} = oauth2_backend_mongopool:verify_resowner_scope(
                               User, [], AppCtx),
     {error, badscope} = oauth2_backend_mongopool:verify_resowner_scope(
                               User, WrongScope, AppCtx),
