@@ -30,7 +30,8 @@ oauth2_mongopool_utils_test_() ->
     fun stop/1,
     fun (SetupData) ->
         [
-          get_scope_from_grantctx(SetupData)
+          get_scope(SetupData),
+          get_cid(SetupData)
         ]
     end
   }.
@@ -41,7 +42,7 @@ start() ->
 stop(_) ->
   ok.
 
-get_scope_from_grantctx(_) ->
+get_scope(_) ->
   fun() ->
       ?assertEqual(
          fuu, oauth2_mongopool_utils:get_scope([{<<"scope">>, fuu}])),
@@ -49,4 +50,17 @@ get_scope_from_grantctx(_) ->
          fu, oauth2_mongopool_utils:get_scope([{a,b}, {<<"scope">>, fu}])),
       ?assertEqual(
          fu, oauth2_mongopool_utils:get_scope([{<<"scope">>, fu}, {a,b}]))
+  end.
+
+get_cid(_) ->
+  fun() ->
+      ?assertEqual(
+         fuu, oauth2_mongopool_utils:get_cid(
+                [{<<"client">>, #{<<"_id">> => fuu}}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_cid(
+               [{a,b}, {<<"client">>, #{<<"_id">> => fu}}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_cid(
+               [{<<"client">>, #{<<"_id">> => fu}}, {a,b}]))
   end.

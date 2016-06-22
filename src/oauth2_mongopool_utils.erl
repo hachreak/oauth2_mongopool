@@ -22,7 +22,7 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([dbMap2OAuth2List/1, get_scope/1]).
+-export([dbMap2OAuth2List/1, get_scope/1, get_cid/1]).
 
 -type grantctx() :: oauth2:context().
 -type scope()    :: oauth2:scope().
@@ -50,3 +50,10 @@ dbMap2OAuth2List(Data) ->
 -spec get_scope(grantctx()) -> scope().
 get_scope(GrantCtx) ->
   proplists:get_value(<<"scope">>, GrantCtx).
+%
+% @doc get client id from a grantctx
+% @end
+-spec get_cid(grantctx()) -> scope().
+get_cid(GrantCtx) ->
+  #{<<"_id">> := Cid} = proplists:get_value(<<"client">>, GrantCtx),
+  Cid.
