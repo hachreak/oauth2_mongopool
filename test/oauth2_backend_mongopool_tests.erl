@@ -20,6 +20,8 @@
 
 -module(oauth2_backend_mongopool_tests).
 
+-author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
+
 -include_lib("eunit/include/eunit.hrl").
 
 oauth2_backend_mongopool_test_() ->

@@ -1,5 +1,5 @@
 %%% @author Leonardo Rossi <leonardo.rossi@studenti.unipr.it>
-%%% @copyright (C) 2015 Leonardo Rossi
+%%% @copyright (C) 2016 Leonardo Rossi
 %%%
 %%% This software is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -15,34 +15,38 @@
 %%% along with this software; if not, write to the Free Software Foundation,
 %%% Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 %%%
-%%% @doc Application configuration.
+%%% @doc Utilities.
 %%% @end
 
--module(oauth2_mongopool_config).
+-module(oauth2_mongopool_utils_tests).
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
-%% API exports
--export([backend/0, table/2]).
+-include_lib("eunit/include/eunit.hrl").
 
--spec table(atom(), term()) -> binary() | no_return().
-table(Id, Default) -> get_config(Id, Default).
+oauth2_mongopool_utils_test_() ->
+  {setup,
+    fun start/0,
+    fun stop/1,
+    fun (SetupData) ->
+        [
+          get_scope_from_grantctx(SetupData)
+        ]
+    end
+  }.
 
-%% @doc Gets the sendmail backend.
--spec backend() -> atom().
-backend() -> get_config(backend, oauth2_mongopool_backend_default).
+start() ->
+  ok.
 
-%%% Private functions ================================================
+stop(_) ->
+  ok.
 
-get_config(Key, Default) ->
-  case application:get_env(oauth2_mongopool, Key) of
-    undefined   -> Default;
-    {ok, Value} -> Value
+get_scope_from_grantctx(_) ->
+  fun() ->
+      ?assertEqual(
+         fuu, oauth2_mongopool_utils:get_scope([{<<"scope">>, fuu}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_scope([{a,b}, {<<"scope">>, fu}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_scope([{<<"scope">>, fu}, {a,b}]))
   end.
-
-% -spec get_config(atom()) -> binary() | no_return().
-% get_config(Key) ->
-%   case application:get_env(oauth2_mongopool, Key) of
-%     undefined   -> throw({missing_config, Key});
-%     {ok, Value} -> Value
-%   end.
