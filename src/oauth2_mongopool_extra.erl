@@ -39,7 +39,7 @@
 %%%_ * Types -----------------------------------------------------------
 
 -type appctx()   :: oauth2_mongopool:appctx().
--type clientid() :: oauth2_mongopool_backend:clientid().
+-type clientid() :: term().
 -type token()    :: oauth2:token().
 
 %%%_ * Functions -------------------------------------------------------
