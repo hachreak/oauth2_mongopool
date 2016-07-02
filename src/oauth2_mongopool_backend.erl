@@ -39,4 +39,4 @@
   {ok, {appctx(), term()}} | {error, notfound}.
 
 -callback authenticate_client(clientid(), secret(), appctx()) ->
-  {ok, {appctx(), term()}} | {error, notfound | badpass}.
+  {ok, {appctx(), term()}} | {error, notfound | badsecret}.
