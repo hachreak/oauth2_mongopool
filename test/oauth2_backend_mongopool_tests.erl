@@ -320,8 +320,9 @@ verify_redirection_uri_test(_SetupData) ->
     Client = #{<<"redirect_uri">> => Uri},
     {ok, AppCtx} = oauth2_backend_mongopool:verify_redirection_uri(
                             Client, Uri, AppCtx),
-    {error, baduri} = oauth2_backend_mongopool:verify_redirection_uri(
-                        Client#{<<"redirect_uri">> => <<>>}, Uri, AppCtx),
+    % test empty redirect_uri
+    {ok, AppCtx} = oauth2_backend_mongopool:verify_redirection_uri(
+                        Client#{<<"redirect_uri">> => <<"">>}, <<"">>, AppCtx),
     {error, baduri} = oauth2_backend_mongopool:verify_redirection_uri(
                         Client, WrongUri, AppCtx)
   end.
