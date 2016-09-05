@@ -31,7 +31,8 @@ oauth2_mongopool_utils_test_() ->
     fun (SetupData) ->
         [
           get_scope(SetupData),
-          get_cid(SetupData)
+          get_cid(SetupData),
+          get_userid(SetupData)
         ]
     end
   }.
@@ -63,4 +64,17 @@ get_cid(_) ->
       ?assertEqual(
          fu, oauth2_mongopool_utils:get_cid(
                [{<<"client">>, #{<<"_id">> => fu}}, {a,b}]))
+  end.
+
+get_userid(_) ->
+  fun() ->
+      ?assertEqual(
+         fuu, oauth2_mongopool_utils:get_userid(
+                [{<<"resource_owner">>, #{<<"_id">> => fuu}}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_userid(
+               [{a,b}, {<<"resource_owner">>, #{<<"_id">> => fu}}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_userid(
+               [{<<"resource_owner">>, #{<<"_id">> => fu}}, {a,b}]))
   end.
