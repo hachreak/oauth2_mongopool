@@ -63,7 +63,8 @@ get_cid(_) ->
                [{a,b}, {<<"client">>, #{<<"_id">> => fu}}])),
       ?assertEqual(
          fu, oauth2_mongopool_utils:get_cid(
-               [{<<"client">>, #{<<"_id">> => fu}}, {a,b}]))
+               [{<<"client">>, #{<<"_id">> => fu}}, {a,b}])),
+      ?assertEqual(undefined, oauth2_mongopool_utils:get_cid([]))
   end.
 
 get_userid(_) ->
@@ -76,5 +77,6 @@ get_userid(_) ->
                [{a,b}, {<<"resource_owner">>, #{<<"_id">> => fu}}])),
       ?assertEqual(
          fu, oauth2_mongopool_utils:get_userid(
-               [{<<"resource_owner">>, #{<<"_id">> => fu}}, {a,b}]))
+               [{<<"resource_owner">>, #{<<"_id">> => fu}}, {a,b}])),
+      ?assertEqual(undefined, oauth2_mongopool_utils:get_userid([]))
   end.

@@ -55,12 +55,16 @@ get_scope(GrantCtx) ->
 % @end
 -spec get_cid(grantctx()) -> scope().
 get_cid(GrantCtx) ->
-  #{<<"_id">> := Cid} = proplists:get_value(<<"client">>, GrantCtx),
-  Cid.
+  get_id(proplists:get_value(<<"client">>, GrantCtx)).
 
 % @doc get user id from a grantctx
 % @end
 -spec get_userid(grantctx()) -> scope().
 get_userid(GrantCtx) ->
-  #{<<"_id">> := UserId} = proplists:get_value(<<"resource_owner">>, GrantCtx),
-  UserId.
+  get_id(proplists:get_value(<<"resource_owner">>, GrantCtx)).
+
+%% private functions
+
+-spec get_id(undefined | map()) -> binary().
+get_id(undefined) -> undefined;
+get_id(#{<<"_id">> := Id}) -> Id.
