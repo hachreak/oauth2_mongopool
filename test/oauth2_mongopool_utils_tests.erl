@@ -32,7 +32,8 @@ oauth2_mongopool_utils_test_() ->
         [
           get_scope(SetupData),
           get_cid(SetupData),
-          get_userid(SetupData)
+          get_userid(SetupData),
+          copy_if_exists(SetupData)
         ]
     end
   }.
@@ -79,4 +80,25 @@ get_userid(_) ->
          fu, oauth2_mongopool_utils:get_userid(
                [{<<"resource_owner">>, #{<<"_id">> => fu}}, {a,b}])),
       ?assertEqual(undefined, oauth2_mongopool_utils:get_userid([]))
+  end.
+
+copy_if_exists(_) ->
+  fun() ->
+      ?assertEqual(
+        #{a => b},
+        oauth2_mongopool_utils:copy_if_exists(c, c, #{d => e}, #{a => b})),
+      ?assertEqual(
+        #{a => b},
+        oauth2_mongopool_utils:copy_if_exists(a, a, #{a => b}, #{})),
+      ?assertEqual(
+        #{a => b, c => d},
+        oauth2_mongopool_utils:copy_if_exists(a, a, #{a => b}, #{c => d})),
+      ?assertEqual(
+        #{a => b, c => d},
+        oauth2_mongopool_utils:copy_if_exists(
+          a, a, #{a => b}, #{a => e, c => d})),
+      ?assertEqual(
+        #{a => e, a2 => b, c => d},
+        oauth2_mongopool_utils:copy_if_exists(
+          a, a2, #{a => b}, #{a => e, c => d}))
   end.

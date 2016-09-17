@@ -22,7 +22,9 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([dbMap2OAuth2List/1, get_scope/1, get_cid/1, get_userid/1]).
+-export([dbMap2OAuth2List/1, get_scope/1, get_cid/1, get_userid/1,
+         copy_if_exists/4
+        ]).
 
 -type grantctx() :: oauth2:context().
 -type scope()    :: oauth2:scope().
@@ -62,6 +64,14 @@ get_cid(GrantCtx) ->
 -spec get_userid(grantctx()) -> scope().
 get_userid(GrantCtx) ->
   get_id(proplists:get_value(<<"resource_owner">>, GrantCtx)).
+
+copy_if_exists(KeyOrig, KeyDest, Orig, Dest) ->
+  try
+    #{KeyOrig := Value} = Orig,
+    Dest#{KeyDest => Value}
+  catch
+    error:{badmatch, _} -> Dest
+  end.
 
 %% private functions
 

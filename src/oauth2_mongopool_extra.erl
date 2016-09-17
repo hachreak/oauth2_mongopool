@@ -72,7 +72,10 @@ resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
   ),
   Tokens = mc_cursor:rest(Cursor),
   mc_cursor:close(Cursor),
-  Tokens.
+  [Token#{
+     <<"grant">> => maps:from_list(
+                      oauth2_mongopool_utils:dbMap2OAuth2List(GrantCtx))}
+      || #{<<"grant">> := GrantCtx}=Token <- Tokens].
 
 -spec get_now() -> non_neg_integer().
 get_now() ->
@@ -80,19 +83,17 @@ get_now() ->
     Mega * 1000000 + Secs.
 
 -spec extract_access_tokens(list()) -> list().
-extract_access_tokens(Tokens) ->
-  [#{
-     <<"expiry_time">> => ExpiryTime,
-     <<"scope">> => Scope,
-     <<"token_access">> => Token
-    } || #{
-      <<"grant">> := [
-        _, _, _,
-        #{<<"expiry_time">> := ExpiryTime},
-        #{<<"scope">> := Scope}
-      ],
-       <<"token">> := Token
-    } <- Tokens].
+extract_access_tokens(Rows) ->
+  lists:map(fun(Row) ->
+      #{<<"grant">> := GrantCtx, <<"token">> := Token} = Row,
+      #{<<"expiry_time">> := ExpiryTime, <<"scope">> := Scope} = GrantCtx,
+      oauth2_mongopool_utils:copy_if_exists(
+        <<"refresh_token">>, <<"token_refresh">>, GrantCtx,
+        #{<<"expiry_time">> => ExpiryTime,
+          <<"scope">> => Scope,
+          <<"token_access">> => Token
+      })
+    end, Rows).
 
 -spec extract_refresh_tokens(list()) -> list().
 extract_refresh_tokens(Tokens) ->
@@ -101,12 +102,11 @@ extract_refresh_tokens(Tokens) ->
      <<"scope">> => Scope,
      <<"token_refresh">> => Token
     } || #{
-      <<"grant">> := [
-        _, _,
-        #{<<"expiry_time">> := ExpiryTime},
-        #{<<"scope">> := Scope}
-      ],
-       <<"token">> := Token
+      <<"grant">> := #{
+        <<"expiry_time">> := ExpiryTime,
+        <<"scope">> := Scope
+      },
+      <<"token">> := Token
     } <- Tokens].
 
 -spec extract_auth_codes(list()) -> list().
@@ -116,10 +116,9 @@ extract_auth_codes(Tokens) ->
      <<"scope">> => Scope,
      <<"token_auth">> => Token
     } || #{
-      <<"grant">> := [
-        _, _,
-        #{<<"expiry_time">> := ExpiryTime},
-        #{<<"scope">> := Scope}
-      ],
-       <<"token">> := Token
+      <<"grant">> := #{
+        <<"expiry_time">> := ExpiryTime,
+        <<"scope">> := Scope
+      },
+      <<"token">> := Token
     } <- Tokens].
