@@ -205,7 +205,7 @@ verify_scope([], _Scope, _AppCtx) ->
   {error, badscope};
 verify_scope(RegisteredScope, Scope, AppCtx) ->
   FQScopes = oauth2_scope_strategy_fq:explode(Scope),
-  case oauth2_scope_strategy_fq:verify_scope(
+  case oauth2_scope_strategy_fq:verify(
          FQScopes,
          oauth2_scope_strategy_fq:explode(RegisteredScope)) of
     true -> {ok, {AppCtx, oauth2_scope_strategy_fq:implode(FQScopes)}};
