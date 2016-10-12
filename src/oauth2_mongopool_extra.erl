@@ -58,24 +58,23 @@ resolve_refresh_tokens(ClientId, AppCtx) ->
   extract_refresh_tokens(
     resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx)).
 
-
 %% Private functions
 
--spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
-resolve_all_codes(ClientId, Table, #{pool := Pool}) ->
-  Cursor = mongopool_app:find(
-    Pool, Table,
-    {'$query', {'$and', [
-      {<<"grant.client._id">>, ClientId},
-      {<<"grant.expiry_time">>, {'$gt', get_now()}}
-    ]}}
-  ),
+-spec resolve(list({binary(), term()}), atom(), appctx()) -> list(token()).
+resolve(RequiredFilters, Table, #{pool := Pool}) ->
+  ExpiryFilters = [{<<"grant.expiry_time">>, {'$gt', get_now()}}],
+  Filters = lists:merge(RequiredFilters, ExpiryFilters),
+  Cursor = mongopool_app:find(Pool, Table, {'$query', {'$and', Filters}}),
   Tokens = mc_cursor:rest(Cursor),
   mc_cursor:close(Cursor),
   [Token#{
      <<"grant">> => maps:from_list(
                       oauth2_mongopool_utils:dbMap2OAuth2List(GrantCtx))}
       || #{<<"grant">> := GrantCtx}=Token <- Tokens].
+
+-spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
+resolve_all_codes(ClientId, Table, AppCtx) ->
+  resolve([{<<"grant.client._id">>, ClientId}], Table, AppCtx).
 
 -spec get_now() -> non_neg_integer().
 get_now() ->
