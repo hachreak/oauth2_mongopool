@@ -25,7 +25,8 @@
 -export([
          resolve_auth_codes/2,
          resolve_access_tokens/2,
-         resolve_refresh_tokens/2
+         resolve_refresh_tokens/2,
+         exists_auth_code/2
         ]).
 
 %%% Tables
@@ -61,6 +62,11 @@ resolve_access_tokens({token_auth, TokenAuth}, AppCtx) ->
 resolve_refresh_tokens(ClientId, AppCtx) ->
   extract_refresh_tokens(
     resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx)).
+
+-spec exists_auth_code(token(), appctx()) -> boolean().
+exists_auth_code(TokenAuth, AppCtx) ->
+  % TODO improve query
+  resolve([{<<"token">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx) =/= [].
 
 %% Private functions
 
