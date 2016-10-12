@@ -48,10 +48,14 @@
 resolve_auth_codes(ClientId, AppCtx) ->
   extract_auth_codes(resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx)).
 
--spec resolve_access_tokens(clientid(), appctx()) -> list(token()).
-resolve_access_tokens(ClientId, AppCtx) ->
+-spec resolve_access_tokens(
+        {cid, clientid()} | {auth, token()}, appctx()) -> list(token()).
+resolve_access_tokens({cid, ClientId}, AppCtx) ->
   extract_access_tokens(
-    resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx)).
+    resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx));
+resolve_access_tokens({token_auth, TokenAuth}, AppCtx) ->
+  extract_access_tokens(
+    resolve([{<<"grant.code">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx)).
 
 -spec resolve_refresh_tokens(clientid(), appctx()) -> list(token()).
 resolve_refresh_tokens(ClientId, AppCtx) ->
