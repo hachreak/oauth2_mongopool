@@ -26,7 +26,7 @@
          resolve_auth_codes/2,
          resolve_access_tokens/2,
          resolve_refresh_tokens/2,
-         exists_auth_code/2,
+         exists_auth_code/3,
          resolve_user_auth_codes/2,
          revoke_access_codes/2
         ]).
@@ -65,6 +65,13 @@ resolve_user_auth_codes(UserId, AppCtx) ->
     extract_user_tokens_auth(<<"token">>, TokensAuthNotConverted),
     extract_user_tokens_auth(<<"grant.code">>, TokensAuthConverted)).
 
+-spec exists_auth_code(binary(), token(), appctx()) -> boolean().
+exists_auth_code(UserId, TokenAuth, AppCtx) ->
+  % TODO improve query
+  resolve(
+    [{<<"grant.resource_owner._id">>, UserId},{<<"token">>, TokenAuth}],
+    ?ACCESS_TOKEN_TABLE, AppCtx) =/= [].
+
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
 resolve_auth_codes(ClientId, AppCtx) ->
   extract_auth_codes(resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx)).
@@ -82,11 +89,6 @@ resolve_access_tokens({token_auth, TokenAuth}, AppCtx) ->
 resolve_refresh_tokens(ClientId, AppCtx) ->
   extract_refresh_tokens(
     resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx)).
-
--spec exists_auth_code(token(), appctx()) -> boolean().
-exists_auth_code(TokenAuth, AppCtx) ->
-  % TODO improve query
-  resolve([{<<"token">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx) =/= [].
 
 %% Private functions
 
