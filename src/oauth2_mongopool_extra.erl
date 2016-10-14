@@ -26,7 +26,8 @@
          resolve_auth_codes/2,
          resolve_access_tokens/2,
          resolve_refresh_tokens/2,
-         exists_auth_code/2
+         exists_auth_code/2,
+         resolve_user_auth_codes/2
         ]).
 
 %%% Tables
@@ -44,6 +45,17 @@
 -type token()    :: oauth2:token().
 
 %%%_ * Functions -------------------------------------------------------
+
+-spec resolve_user_auth_codes(binary(), appctx()) -> list(token()).
+resolve_user_auth_codes(UserId, AppCtx) ->
+  TokensAuthNotConverted = resolve(
+    [{<<"grant.user._id">>, UserId}], ?ACCESS_CODE_TABLE, AppCtx),
+  TokensAuthConverted = resolve(
+    [{<<"grant.user._id">>, UserId}, {<<"grant.code">>, {'$exists', true}}],
+    ?ACCESS_TOKEN_TABLE, AppCtx),
+  lists:merge(
+    extract_user_tokens_auth(<<"token">>, TokensAuthNotConverted),
+    extract_user_tokens_auth(<<"grant.code">>, TokensAuthConverted)).
 
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
 resolve_auth_codes(ClientId, AppCtx) ->
@@ -116,6 +128,42 @@ extract_refresh_tokens(Tokens) ->
         <<"scope">> := Scope
       },
       <<"token">> := Token
+    } <- Tokens].
+
+-spec extract_user_tokens_auth(binary(), list()) -> list().
+extract_user_tokens_auth(<<"token">>, Tokens) ->
+  [#{
+     <<"clientid">> => ClientId,
+     <<"expiry_time">> => ExpiryTime,
+     <<"scope">> => Scope,
+     <<"converted">> => <<"false">>,
+     <<"token_auth">> => Token
+    } || #{
+      <<"grant">> := #{
+        <<"expiry_time">> := ExpiryTime,
+        <<"scope">> := Scope,
+        <<"client">> := #{
+          <<"_id">> := ClientId
+        }
+      },
+      <<"token">> := Token
+    } <- Tokens];
+extract_user_tokens_auth(<<"grant.code">>, Tokens) ->
+  [#{
+     <<"clientid">> => ClientId,
+     <<"expiry_time">> => ExpiryTime,
+     <<"scope">> => Scope,
+     <<"converted">> => <<"true">>,
+     <<"token_auth">> => Token
+    } || #{
+      <<"grant">> := #{
+        <<"code">> := Token,
+        <<"expiry_time">> := ExpiryTime,
+        <<"scope">> := Scope,
+        <<"client">> := #{
+          <<"_id">> := ClientId
+        }
+      }
     } <- Tokens].
 
 -spec extract_auth_codes(list()) -> list().
