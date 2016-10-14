@@ -28,7 +28,8 @@
          resolve_refresh_tokens/2,
          exists_auth_code/3,
          resolve_user_auth_codes/2,
-         revoke_user_access_codes/2
+         revoke_user_access_codes/2,
+         revoke_access_code/2
         ]).
 
 %%% Tables
@@ -47,6 +48,11 @@
 -type filters()  :: list({binary(), term()}).
 
 %%%_ * Functions -------------------------------------------------------
+
+-spec revoke_access_code(token(), appctx()) ->
+  {ok, appctx()} | {error, notfound}.
+revoke_access_code(AccessCode, AppCtx) ->
+  oauth2_backend_mongopool:revoke_access_code(AccessCode, AppCtx).
 
 -spec revoke_user_access_codes(binary(), appctx()) -> {ok, appctx}.
 revoke_user_access_codes(UserId, #{pool := Pool}=AppCtx) ->
