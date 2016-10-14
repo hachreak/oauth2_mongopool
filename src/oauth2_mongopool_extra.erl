@@ -27,7 +27,8 @@
          resolve_access_tokens/2,
          resolve_refresh_tokens/2,
          exists_auth_code/2,
-         resolve_user_auth_codes/2
+         resolve_user_auth_codes/2,
+         revoke_access_codes/2
         ]).
 
 %%% Tables
@@ -46,12 +47,19 @@
 
 %%%_ * Functions -------------------------------------------------------
 
+-spec revoke_access_codes(binary(), appctx()) -> {ok, appctx}.
+revoke_access_codes(UserId, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?ACCESS_CODE_TABLE,
+                       #{<<"grant.resource_owner._id">> => UserId}),
+  {ok, AppCtx}.
+
 -spec resolve_user_auth_codes(binary(), appctx()) -> list(token()).
 resolve_user_auth_codes(UserId, AppCtx) ->
   TokensAuthNotConverted = resolve(
-    [{<<"grant.user._id">>, UserId}], ?ACCESS_CODE_TABLE, AppCtx),
+    [{<<"grant.resource_owner._id">>, UserId}], ?ACCESS_CODE_TABLE, AppCtx),
   TokensAuthConverted = resolve(
-    [{<<"grant.user._id">>, UserId}, {<<"grant.code">>, {'$exists', true}}],
+    [{<<"grant.resource_owner._id">>, UserId},
+     {<<"grant.code">>, {'$exists', true}}],
     ?ACCESS_TOKEN_TABLE, AppCtx),
   lists:merge(
     extract_user_tokens_auth(<<"token">>, TokensAuthNotConverted),
