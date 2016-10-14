@@ -69,7 +69,7 @@ resolve_user_auth_codes(UserId, AppCtx) ->
 exists_auth_code(UserId, TokenAuth, AppCtx) ->
   % TODO improve query
   resolve_user_tokens(
-    UserId, [{<<"token">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx) =/= [].
+    UserId, [{<<"token">>, TokenAuth}], ?ACCESS_CODE_TABLE, AppCtx) =/= [].
 
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
 resolve_auth_codes(ClientId, AppCtx) ->
