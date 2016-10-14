@@ -166,7 +166,7 @@ revoke_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
 revoke_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
   mongopool_app:delete(Pool, ?ACCESS_TOKEN_TABLE,
                        #{<<"token">> => AccessToken}),
-  {error, AppCtx}.
+  {ok, AppCtx}.
 
 -spec get_client_identity(client(), appctx()) ->
   {ok, {appctx(), client()}} | {error, notfound | badsecret}.
