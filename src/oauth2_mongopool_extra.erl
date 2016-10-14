@@ -28,7 +28,7 @@
          resolve_refresh_tokens/2,
          exists_auth_code/3,
          resolve_user_auth_codes/2,
-         revoke_access_codes/2
+         revoke_user_access_codes/2
         ]).
 
 %%% Tables
@@ -44,22 +44,22 @@
 -type appctx()   :: oauth2_mongopool:appctx().
 -type clientid() :: term().
 -type token()    :: oauth2:token().
+-type filters()  :: list({binary(), term()}).
 
 %%%_ * Functions -------------------------------------------------------
 
--spec revoke_access_codes(binary(), appctx()) -> {ok, appctx}.
-revoke_access_codes(UserId, #{pool := Pool}=AppCtx) ->
+-spec revoke_user_access_codes(binary(), appctx()) -> {ok, appctx}.
+revoke_user_access_codes(UserId, #{pool := Pool}=AppCtx) ->
   mongopool_app:delete(Pool, ?ACCESS_CODE_TABLE,
                        #{<<"grant.resource_owner._id">> => UserId}),
   {ok, AppCtx}.
 
 -spec resolve_user_auth_codes(binary(), appctx()) -> list(token()).
 resolve_user_auth_codes(UserId, AppCtx) ->
-  TokensAuthNotConverted = resolve(
-    [{<<"grant.resource_owner._id">>, UserId}], ?ACCESS_CODE_TABLE, AppCtx),
-  TokensAuthConverted = resolve(
-    [{<<"grant.resource_owner._id">>, UserId},
-     {<<"grant.code">>, {'$exists', true}}],
+  TokensAuthNotConverted = resolve_user_tokens(
+    UserId, [], ?ACCESS_CODE_TABLE, AppCtx),
+  TokensAuthConverted = resolve_user_tokens(
+    UserId, [{<<"grant.code">>, {'$exists', true}}],
     ?ACCESS_TOKEN_TABLE, AppCtx),
   lists:merge(
     extract_user_tokens_auth(<<"token">>, TokensAuthNotConverted),
@@ -68,22 +68,23 @@ resolve_user_auth_codes(UserId, AppCtx) ->
 -spec exists_auth_code(binary(), token(), appctx()) -> boolean().
 exists_auth_code(UserId, TokenAuth, AppCtx) ->
   % TODO improve query
-  resolve(
-    [{<<"grant.resource_owner._id">>, UserId},{<<"token">>, TokenAuth}],
-    ?ACCESS_TOKEN_TABLE, AppCtx) =/= [].
+  resolve_user_tokens(
+    UserId, [{<<"token">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx) =/= [].
 
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
 resolve_auth_codes(ClientId, AppCtx) ->
   extract_auth_codes(resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx)).
 
 -spec resolve_access_tokens(
-        {cid, clientid()} | {auth, token()}, appctx()) -> list(token()).
+        {cid, clientid()} | {auth, binary(), token()}, appctx()) ->
+    list(token()).
 resolve_access_tokens({cid, ClientId}, AppCtx) ->
   extract_access_tokens(
     resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx));
-resolve_access_tokens({token_auth, TokenAuth}, AppCtx) ->
+resolve_access_tokens({token_auth, UserId, TokenAuth}, AppCtx) ->
   extract_access_tokens(
-    resolve([{<<"grant.code">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx)).
+    resolve_user_tokens(
+      UserId, [{<<"grant.code">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx)).
 
 -spec resolve_refresh_tokens(clientid(), appctx()) -> list(token()).
 resolve_refresh_tokens(ClientId, AppCtx) ->
@@ -92,7 +93,14 @@ resolve_refresh_tokens(ClientId, AppCtx) ->
 
 %% Private functions
 
--spec resolve(list({binary(), term()}), atom(), appctx()) -> list(token()).
+-spec resolve_user_tokens(binary(), filters(), atom(), appctx()) ->
+    list(token()).
+resolve_user_tokens(UserId, RequiredFilters, Table, AppCtx) ->
+  UserFilters = [{<<"grant.resource_owner._id">>, UserId}],
+  Filters = lists:merge(RequiredFilters, UserFilters),
+  resolve(Filters, Table, AppCtx).
+
+-spec resolve(filters(), atom(), appctx()) -> list(token()).
 resolve(RequiredFilters, Table, #{pool := Pool}) ->
   ExpiryFilters = [{<<"grant.expiry_time">>, {'$gt', get_now()}}],
   Filters = lists:merge(RequiredFilters, ExpiryFilters),
