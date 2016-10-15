@@ -67,15 +67,19 @@ revoke_user_access_codes(UserId, #{pool := Pool}=AppCtx) ->
   {ok, AppCtx}.
 
 -spec resolve_user_auth_codes(binary(), appctx()) -> list(token()).
-resolve_user_auth_codes(UserId, AppCtx) ->
-  TokensAuthNotConverted = resolve_user_tokens(
-    UserId, [], ?ACCESS_CODE_TABLE, AppCtx),
-  TokensAuthConverted = resolve_user_tokens(
-    UserId, [{<<"grant.code">>, {'$exists', true}}],
-    ?ACCESS_TOKEN_TABLE, AppCtx),
+resolve_user_auth_codes({not_converted, UserId}, AppCtx) ->
+  extract_user_tokens_auth(
+    <<"token">>, resolve_user_tokens(UserId, [], ?ACCESS_CODE_TABLE, AppCtx));
+resolve_user_auth_codes({converted, UserId}, AppCtx) ->
+  extract_user_tokens_auth(
+    <<"grant.code">>,
+    resolve_user_tokens(
+      UserId, [{<<"grant.code">>, {'$exists', true}}],
+      ?ACCESS_TOKEN_TABLE, AppCtx));
+resolve_user_auth_codes({all, UserId}, AppCtx) ->
   lists:merge(
-    extract_user_tokens_auth(<<"token">>, TokensAuthNotConverted),
-    extract_user_tokens_auth(<<"grant.code">>, TokensAuthConverted)).
+    resolve_user_auth_codes({not_converted, UserId}, AppCtx),
+    resolve_user_auth_codes({converted, UserId}, AppCtx)).
 
 -spec exists_auth_code(binary(), token(), appctx()) -> boolean().
 exists_auth_code(UserId, TokenAuth, AppCtx) ->
