@@ -60,13 +60,24 @@ revoke_access_token(AccessToken, AppCtx) ->
 revoke_access_code(AccessCode, AppCtx) ->
   oauth2_backend_mongopool:revoke_access_code(AccessCode, AppCtx).
 
--spec revoke_user_access_codes(binary(), appctx()) -> {ok, appctx}.
-revoke_user_access_codes(UserId, #{pool := Pool}=AppCtx) ->
+-spec revoke_user_access_codes(
+    {not_converted | converted | all, binary()}, appctx()) -> {ok, appctx}.
+revoke_user_access_codes({not_converted, UserId}, #{pool := Pool}=AppCtx) ->
   mongopool_app:delete(Pool, ?ACCESS_CODE_TABLE,
                        #{<<"grant.resource_owner._id">> => UserId}),
+  {ok, AppCtx};
+revoke_user_access_codes({converted, UserId}, #{pool := Pool}=AppCtx) ->
+  mongopool_app:delete(Pool, ?ACCESS_TOKEN_TABLE,
+                       #{<<"grant.resource_owner._id">> => UserId,
+                         <<"grant.client">> => {'$ne', undefined}}),
+  {ok, AppCtx};
+revoke_user_access_codes({all, UserId}, AppCtx) ->
+  revoke_user_access_codes({not_converted, UserId}, AppCtx),
+  revoke_user_access_codes({converted, UserId}, AppCtx),
   {ok, AppCtx}.
 
--spec resolve_user_auth_codes(binary(), appctx()) -> list(token()).
+-spec resolve_user_auth_codes(
+    {not_converted | converted | all, binary()}, appctx()) -> list(token()).
 resolve_user_auth_codes({not_converted, UserId}, AppCtx) ->
   extract_user_tokens_auth(
     <<"token">>, resolve_user_tokens(UserId, [], ?ACCESS_CODE_TABLE, AppCtx));
