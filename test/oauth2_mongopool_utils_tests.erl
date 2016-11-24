@@ -33,6 +33,7 @@ oauth2_mongopool_utils_test_() ->
           get_scope(SetupData),
           get_cid(SetupData),
           get_userid(SetupData),
+          get_token_refresh(SetupData),
           copy_if_exists(SetupData)
         ]
     end
@@ -66,6 +67,20 @@ get_cid(_) ->
          fu, oauth2_mongopool_utils:get_cid(
                [{<<"client">>, #{<<"_id">> => fu}}, {a,b}])),
       ?assertEqual(undefined, oauth2_mongopool_utils:get_cid([]))
+  end.
+
+get_token_refresh(_) ->
+  fun() ->
+      ?assertEqual(
+         fuu, oauth2_mongopool_utils:get_token_refresh(
+                [{<<"refresh_token">>, fuu}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_token_refresh(
+               [{a,b}, {<<"refresh_token">>, fu}])),
+      ?assertEqual(
+         fu, oauth2_mongopool_utils:get_token_refresh(
+               [{<<"refresh_token">>, fu}, {a,b}])),
+      ?assertEqual(undefined, oauth2_mongopool_utils:get_token_refresh([]))
   end.
 
 get_userid(_) ->

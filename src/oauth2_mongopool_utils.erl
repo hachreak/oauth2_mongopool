@@ -23,11 +23,12 @@
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
 -export([dbMap2OAuth2List/1, get_scope/1, get_cid/1, get_userid/1,
-         copy_if_exists/4
+         copy_if_exists/4, get_token_refresh/1
         ]).
 
 -type grantctx() :: oauth2:context().
 -type scope()    :: oauth2:scope().
+-type token()    :: oauth2:token().
 
 % @doc Note: [map] -> [proplist]
 %   if you write list [{K1,V1}, {K2,V2}] into the mongodb
@@ -52,6 +53,12 @@ dbMap2OAuth2List(Data) ->
 -spec get_scope(grantctx()) -> scope().
 get_scope(GrantCtx) ->
   proplists:get_value(<<"scope">>, GrantCtx).
+
+% @doc get refresh token from a grantctx
+% @end
+-spec get_token_refresh(grantctx()) -> token() | undefined.
+get_token_refresh(GrantCtx) ->
+  proplists:get_value(<<"refresh_token">>, GrantCtx).
 
 % @doc get client id from a grantctx
 % @end
