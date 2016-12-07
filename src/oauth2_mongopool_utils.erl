@@ -22,31 +22,13 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([dbMap2OAuth2List/1, get_scope/1, get_cid/1, get_userid/1,
+-export([get_scope/1, get_cid/1, get_userid/1,
          copy_if_exists/4, get_token_refresh/1
         ]).
 
 -type grantctx() :: oauth2:context().
 -type scope()    :: oauth2:scope().
 -type token()    :: oauth2:token().
-
-% @doc Note: [map] -> [proplist]
-%   if you write list [{K1,V1}, {K2,V2}] into the mongodb
-%   when you'll read, you have a map as [#{K1 => V1}, #{K2 => V2}]! T_T
-%   This function make the transformation back.
-% @end
-dbMap2OAuth2List(Data) ->
-  lists:concat(
-    [
-     case is_list(X) of
-       true -> X;
-       false ->
-         case is_map(X) of
-           true -> maps:to_list(X);
-           false -> X
-         end
-     end || X <- Data
-    ]).
 
 % @doc get scope from a grantctx
 % @end

@@ -94,78 +94,53 @@ authenticate_client({ClientId, ClientSecret}, AppCtx) ->
 
 -spec associate_refresh_token(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-associate_refresh_token(RefreshToken, Context, #{pool := Pool}=AppCtx) ->
-  mongopool_app:insert(
-    Pool, ?REFRESH_TOKEN_TABLE,
-    #{<<"_id">> => RefreshToken, <<"token">> => RefreshToken,
-      <<"grant">> => Context}),
+associate_refresh_token(Token, Context, #{pool := Pool}=AppCtx) ->
+  create(Pool, ?REFRESH_TOKEN_TABLE, Token, Context),
   {ok, AppCtx}.
 
 -spec associate_access_code(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-associate_access_code(AccessCode, Context, #{pool := Pool}=AppCtx) ->
-  mongopool_app:insert(Pool, ?ACCESS_CODE_TABLE,
-                       #{<<"_id">> => AccessCode, <<"token">> => AccessCode,
-                         <<"grant">> => Context}),
+associate_access_code(Token, Context, #{pool := Pool}=AppCtx) ->
+  create(Pool, ?ACCESS_CODE_TABLE, Token, Context),
   {ok, AppCtx}.
 
 -spec associate_access_token(token(), grantctx(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-associate_access_token(AccessToken, Context, #{pool := Pool}=AppCtx) ->
-  mongopool_app:insert(Pool, ?ACCESS_TOKEN_TABLE,
-                       #{<<"_id">> => AccessToken, <<"token">> => AccessToken,
-                         <<"grant">> => Context}),
+associate_access_token(Token, Context, #{pool := Pool}=AppCtx) ->
+  create(Pool, ?ACCESS_TOKEN_TABLE, Token, Context),
   {ok, AppCtx}.
 
 -spec resolve_refresh_token(token(), appctx()) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
-resolve_refresh_token(RefreshToken, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?REFRESH_TOKEN_TABLE,
-                              #{<<"token">> => RefreshToken}) of
-    #{<<"token">> := RefreshToken, <<"grant">> := Grant} ->
-      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
-    _Rest -> {error, notfound}
-  end.
+resolve_refresh_token(Token, AppCtx) ->
+  get(?REFRESH_TOKEN_TABLE, Token, AppCtx).
 
 -spec resolve_access_code(token(), appctx()) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
-resolve_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?ACCESS_CODE_TABLE,
-                              #{<<"token">> => AccessCode}) of
-    #{<<"token">> := AccessCode, <<"grant">> := Grant} ->
-      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
-    _Rest -> {error, notfound}
-  end.
+resolve_access_code(Token, AppCtx) ->
+  get(?ACCESS_CODE_TABLE, Token, AppCtx).
 
 -spec resolve_access_token(token(), appctx()) ->
   {ok, {appctx(), grantctx()}} | {error, notfound}.
-resolve_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
-  case mongopool_app:find_one(Pool, ?ACCESS_TOKEN_TABLE,
-                          #{<<"token">> => AccessToken}) of
-    #{<<"token">> := AccessToken, <<"grant">> := Grant} ->
-      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Grant)}};
-    _Rest -> {error, notfound}
-  end.
+resolve_access_token(Token, AppCtx) ->
+  get(?ACCESS_TOKEN_TABLE, Token, AppCtx).
 
 -spec revoke_refresh_token(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-revoke_refresh_token(RefreshToken, #{pool := Pool}=AppCtx) ->
-  mongopool_app:delete(Pool, ?REFRESH_TOKEN_TABLE,
-                       #{<<"token">> => RefreshToken}),
+revoke_refresh_token(Token, #{pool := Pool}=AppCtx) ->
+  delete(Pool, ?REFRESH_TOKEN_TABLE, Token),
   {ok, AppCtx}.
 
 -spec revoke_access_code(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-revoke_access_code(AccessCode, #{pool := Pool}=AppCtx) ->
-  mongopool_app:delete(Pool, ?ACCESS_CODE_TABLE,
-                       #{<<"token">> => AccessCode}),
+revoke_access_code(Token, #{pool := Pool}=AppCtx) ->
+  delete(Pool, ?ACCESS_CODE_TABLE, Token),
   {ok, AppCtx}.
 
 -spec revoke_access_token(token(), appctx()) ->
   {ok, appctx()} | {error, notfound}.
-revoke_access_token(AccessToken, #{pool := Pool}=AppCtx) ->
-  mongopool_app:delete(Pool, ?ACCESS_TOKEN_TABLE,
-                       #{<<"token">> => AccessToken}),
+revoke_access_token(Token, #{pool := Pool}=AppCtx) ->
+  delete(Pool, ?ACCESS_TOKEN_TABLE, Token),
   {ok, AppCtx}.
 
 -spec get_client_identity(client(), appctx()) ->
@@ -211,3 +186,27 @@ verify_scope(RegisteredScope, Scope, AppCtx) ->
     true -> {ok, {AppCtx, oauth2_scope_strategy_fq:implode(FQScopes)}};
     false -> {error, badscope}
   end.
+
+%% Private functions
+
+-spec create(atom(), atom(), token(), grantctx()) -> ok.
+create(Pool, Table, Token, Context) ->
+  mongopool_app:insert(
+    Pool, Table, #{<<"_id">> => Token,
+                   <<"grant">> => maps:from_list(Context)}).
+
+-spec delete(atom(), atom(), token()) -> ok.
+delete(Pool, Table, Token) ->
+  mongopool_app:delete(Pool, Table, #{<<"_id">> => Token}).
+
+-spec get(atom(), token(), appctx()) ->
+    {ok, {appctx(), grantctx()}} | {error, notfound}.
+get(Table, Token, #{pool := Pool}=AppCtx) ->
+  adapt_get(
+    mongopool_app:find_one(Pool, Table, #{<<"_id">> => Token}), AppCtx).
+
+-spec adapt_get(map(), appctx()) ->
+    {ok, {appctx(), grantctx()}} | {error, notfound}.
+adapt_get(#{<<"_id">> := _Token, <<"grant">> := Grant}, AppCtx) ->
+  {ok, {AppCtx, maps:to_list(Grant)}};
+adapt_get(_, _) -> {error, notfound}.

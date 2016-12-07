@@ -80,7 +80,7 @@ revoke_user_access_codes({all, UserId}, AppCtx) ->
     {not_converted | converted | all, binary()}, appctx()) -> list(token()).
 resolve_user_auth_codes({not_converted, UserId}, AppCtx) ->
   extract_user_tokens_auth(
-    <<"token">>, resolve_user_tokens(UserId, [], ?ACCESS_CODE_TABLE, AppCtx));
+    <<"_id">>, resolve_user_tokens(UserId, [], ?ACCESS_CODE_TABLE, AppCtx));
 resolve_user_auth_codes({converted, UserId}, AppCtx) ->
   extract_user_tokens_auth(
     <<"grant.code">>,
@@ -96,7 +96,7 @@ resolve_user_auth_codes({all, UserId}, AppCtx) ->
 exists_auth_code(UserId, TokenAuth, AppCtx) ->
   % TODO improve query
   resolve_user_tokens(
-    UserId, [{<<"token">>, TokenAuth}], ?ACCESS_CODE_TABLE, AppCtx) =/= [].
+    UserId, [{<<"_id">>, TokenAuth}], ?ACCESS_CODE_TABLE, AppCtx) =/= [].
 
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
 resolve_auth_codes(ClientId, AppCtx) ->
@@ -134,10 +134,7 @@ resolve(RequiredFilters, Table, #{pool := Pool}) ->
   Cursor = mongopool_app:find(Pool, Table, {'$query', {'$and', Filters}}),
   Tokens = mc_cursor:rest(Cursor),
   mc_cursor:close(Cursor),
-  [Token#{
-     <<"grant">> => maps:from_list(
-                      oauth2_mongopool_utils:dbMap2OAuth2List(GrantCtx))}
-      || #{<<"grant">> := GrantCtx}=Token <- Tokens].
+  Tokens.
 
 -spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
 resolve_all_codes(ClientId, Table, AppCtx) ->
@@ -151,7 +148,7 @@ get_now() ->
 -spec extract_access_tokens(list()) -> list().
 extract_access_tokens(Rows) ->
   lists:map(fun(Row) ->
-      #{<<"grant">> := GrantCtx, <<"token">> := Token} = Row,
+      #{<<"grant">> := GrantCtx, <<"_id">> := Token} = Row,
       #{<<"expiry_time">> := ExpiryTime, <<"scope">> := Scope} = GrantCtx,
       oauth2_mongopool_utils:copy_if_exists(
         <<"refresh_token">>, <<"token_refresh">>, GrantCtx,
@@ -172,11 +169,11 @@ extract_refresh_tokens(Tokens) ->
         <<"expiry_time">> := ExpiryTime,
         <<"scope">> := Scope
       },
-      <<"token">> := Token
+      <<"_id">> := Token
     } <- Tokens].
 
 -spec extract_user_tokens_auth(binary(), list()) -> list().
-extract_user_tokens_auth(<<"token">>, Tokens) ->
+extract_user_tokens_auth(<<"_id">>, Tokens) ->
   [#{
      <<"clientid">> => ClientId,
      <<"expiry_time">> => ExpiryTime,
@@ -191,7 +188,7 @@ extract_user_tokens_auth(<<"token">>, Tokens) ->
           <<"_id">> := ClientId
         }
       },
-      <<"token">> := Token
+      <<"_id">> := Token
     } <- Tokens];
 extract_user_tokens_auth(<<"grant.code">>, Tokens) ->
   [#{
@@ -222,5 +219,5 @@ extract_auth_codes(Tokens) ->
         <<"expiry_time">> := ExpiryTime,
         <<"scope">> := Scope
       },
-      <<"token">> := Token
+      <<"_id">> := Token
     } <- Tokens].

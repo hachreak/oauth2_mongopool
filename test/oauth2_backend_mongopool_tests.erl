@@ -138,24 +138,24 @@ verify_scope_test(_) ->
 associate_refresh_token_test(_) ->
   fun() ->
     RefreshToken = <<"Refresh-Token-Test">>,
-    Context = [#{<<"client">> => <<"Context-Access-Token-Test">>},
-               #{<<"resource_owner">> => <<"test_resource_owner">>},
-               #{<<"expiry_time">> => <<"1449319960">>}],
+    Context = [{<<"client">>, <<"Context-Access-Token-Test">>},
+               {<<"resource_owner">>, <<"test_resource_owner">>},
+               {<<"expiry_time">>, <<"1449319960">>}],
     AppCtx = #{pool => fuu},
-    insert(fun(fuu, _, Value) ->
-               ?assertEqual(
-                  Value, #{<<"token">> => RefreshToken,
-                           <<"_id">> => RefreshToken, <<"grant">> => Context})
+    insert(fun(fuu, _, #{<<"_id">> := RefreshToken2,
+                         <<"grant">> := Context2}) ->
+               ?assertEqual(maps:from_list(Context), Context2),
+               ?assertEqual(RefreshToken, RefreshToken2)
            end),
     {ok, AppCtx} = oauth2_backend_mongopool:associate_refresh_token(
                         RefreshToken, Context, AppCtx),
-    find_one(#{<<"token">> => RefreshToken, <<"grant">> => Context}),
-    ?assertEqual(
-      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Context)}},
-      oauth2_backend_mongopool:resolve_refresh_token(RefreshToken, AppCtx)
-    ),
+    find_one(#{<<"_id">> => RefreshToken,
+               <<"grant">> => maps:from_list(Context)}),
+    {ok, {AppCtx, Context2}} = oauth2_backend_mongopool:resolve_refresh_token(
+                                 RefreshToken, AppCtx),
+    ?assertEqual(maps:from_list(Context), maps:from_list(Context2)),
     delete(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"token">> => RefreshToken})
+               ?assertEqual(Value, #{<<"_id">> => RefreshToken})
            end),
     find_one(#{}),
     oauth2_backend_mongopool:revoke_refresh_token(RefreshToken, AppCtx),
@@ -168,25 +168,25 @@ associate_refresh_token_test(_) ->
 associate_access_token_test(_) ->
   fun() ->
     AccessToken = <<"Access-Token-Test">>,
-    Context = [#{<<"client">> => <<"Context-Access-Token-Test">>},
-               #{<<"resource_owner">> => <<"test_resource_owner">>},
-               #{<<"expiry_time">> => <<"1449319960">>}],
+    Context = [{<<"client">>, <<"Context-Access-Token-Test">>},
+               {<<"resource_owner">>, <<"test_resource_owner">>},
+               {<<"expiry_time">>, <<"1449319960">>}],
     AppCtx = #{pool => fuu},
-    insert(fun(fuu, _, Value) ->
-               ?assertEqual(
-                  Value, #{<<"token">> => AccessToken,
-                           <<"_id">> => AccessToken, <<"grant">> => Context})
+    insert(fun(fuu, _, #{<<"_id">> := AccessToken2,
+                         <<"grant">> := Context2}) ->
+               ?assertEqual(maps:from_list(Context), Context2),
+               ?assertEqual(AccessToken, AccessToken2)
            end),
     {ok, AppCtx} = oauth2_backend_mongopool:associate_access_token(
                         AccessToken, Context, AppCtx),
-    find_one(#{<<"token">> => AccessToken, <<"grant">> => Context}),
-    ?assertEqual(
-      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Context)}},
-      oauth2_backend_mongopool:resolve_access_token(AccessToken, AppCtx)
-    ),
+    find_one(#{<<"_id">> => AccessToken,
+               <<"grant">> => maps:from_list(Context)}),
+    {ok, {AppCtx, Context2}} = oauth2_backend_mongopool:resolve_access_token(
+                                AccessToken, AppCtx),
+    ?assertEqual(maps:from_list(Context), maps:from_list(Context2)),
     find_one(#{}),
     delete(fun(fuu, _, Value) ->
-               ?assertEqual(Value, #{<<"token">> => AccessToken})
+               ?assertEqual(Value, #{<<"_id">> => AccessToken})
            end),
     oauth2_backend_mongopool:revoke_access_token(AccessToken, AppCtx),
     ?assertEqual(
@@ -198,25 +198,25 @@ associate_access_token_test(_) ->
 associate_access_code_test(_) ->
   fun() ->
     AccessCode = <<"Access-Code-Test">>,
-    Context = [#{<<"client">> => <<"Context-Access-Token-Test">>},
-               #{<<"resource_owner">> => <<"test_resource_owner">>},
-               #{<<"expiry_time">> => <<"1449319960">>}],
+    Context = [{<<"client">>, <<"Context-Access-Token-Test">>},
+               {<<"resource_owner">>, <<"test_resource_owner">>},
+               {<<"expiry_time">>, <<"1449319960">>}],
     AppCtx = #{pool => fuu},
-    insert(fun(fuu, _, Value) ->
-               ?assertEqual(
-                  Value, #{<<"token">> => AccessCode,
-                           <<"_id">> => AccessCode, <<"grant">> => Context})
+    insert(fun(fuu, _, #{<<"_id">> := AccessCode2, <<"grant">> := Context2}) ->
+               ?assertEqual(maps:from_list(Context), Context2),
+               ?assertEqual(AccessCode, AccessCode2)
            end),
     {ok, AppCtx} = oauth2_backend_mongopool:associate_access_code(
                         AccessCode, Context, AppCtx),
-    find_one(#{<<"token">> => AccessCode, <<"grant">> => Context}),
+    find_one(#{<<"_id">> => AccessCode,
+               <<"grant">> => maps:from_list(Context)}),
     delete(fun(_, _, Value) ->
-               ?assertEqual(Value, #{<<"token">> => AccessCode})
+               ?assertEqual(Value, #{<<"_id">> => AccessCode})
            end),
-    ?assertEqual(
-      {ok, {AppCtx, oauth2_mongopool_utils:dbMap2OAuth2List(Context)}},
-      oauth2_backend_mongopool:resolve_access_code(AccessCode, AppCtx)
-    ),
+
+    {ok, {AppCtx, Context2}} = oauth2_backend_mongopool:resolve_access_code(
+                                 AccessCode, AppCtx),
+    ?assertEqual(maps:from_list(Context), maps:from_list(Context2)),
     find_one(#{}),
     oauth2_backend_mongopool:revoke_access_code(AccessCode, AppCtx),
     ?assertEqual(
