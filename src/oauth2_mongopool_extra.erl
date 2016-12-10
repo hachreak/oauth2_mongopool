@@ -45,8 +45,9 @@
 
 -type appctx()   :: oauth2_mongopool:appctx().
 -type clientid() :: term().
--type token()    :: oauth2:token().
 -type filters()  :: list({binary(), term()}).
+-type fqscopes() :: oauth2_scope_strategy_fq:fqscopes().
+-type token()    :: oauth2:token().
 
 %%%_ * Functions -------------------------------------------------------
 
@@ -99,24 +100,33 @@ exists_auth_code(UserId, TokenAuth, AppCtx) ->
     UserId, [{<<"_id">>, TokenAuth}], ?ACCESS_CODE_TABLE, AppCtx) =/= [].
 
 -spec resolve_auth_codes(clientid(), appctx()) -> list(token()).
-resolve_auth_codes(ClientId, AppCtx) ->
-  extract_auth_codes(resolve_all_codes(ClientId, ?ACCESS_CODE_TABLE, AppCtx)).
+resolve_auth_codes(Cid, AppCtx) ->
+  extract_auth_codes(resolve_all_codes(Cid, ?ACCESS_CODE_TABLE, AppCtx)).
 
 -spec resolve_access_tokens(
-        {cid, clientid()} | {auth, binary(), token()}, appctx()) ->
+        {cid, clientid(), fqscopes()} | {cid, clientid()} |
+        {auth, binary(), token()}, appctx()) ->
     list(token()).
-resolve_access_tokens({cid, ClientId}, AppCtx) ->
+resolve_access_tokens({cid, Cid, FQScopes}, AppCtx) ->
+  Scopes = oauth2_scope_strategy_fq:implode(FQScopes),
+  Filters = lists:map(fun(SingleScope) ->
+      RegEx = << <<"^">>/binary, SingleScope/binary, <<"$">>/binary >>,
+      {<<"grant.scope">>, {'$regex', RegEx}}
+    end, Scopes),
+  Query = [{<<"grant.client._id">>, Cid}, {'$or', Filters}],
+  extract_access_tokens(resolve(Query, ?ACCESS_TOKEN_TABLE, AppCtx));
+resolve_access_tokens({cid, Cid}, AppCtx) ->
   extract_access_tokens(
-    resolve_all_codes(ClientId, ?ACCESS_TOKEN_TABLE, AppCtx));
+    resolve_all_codes(Cid, ?ACCESS_TOKEN_TABLE, AppCtx));
 resolve_access_tokens({token_auth, UserId, TokenAuth}, AppCtx) ->
   extract_access_tokens(
     resolve_user_tokens(
       UserId, [{<<"grant.code">>, TokenAuth}], ?ACCESS_TOKEN_TABLE, AppCtx)).
 
 -spec resolve_refresh_tokens(clientid(), appctx()) -> list(token()).
-resolve_refresh_tokens(ClientId, AppCtx) ->
+resolve_refresh_tokens(Cid, AppCtx) ->
   extract_refresh_tokens(
-    resolve_all_codes(ClientId, ?REFRESH_TOKEN_TABLE, AppCtx)).
+    resolve_all_codes(Cid, ?REFRESH_TOKEN_TABLE, AppCtx)).
 
 %% Private functions
 
@@ -127,6 +137,10 @@ resolve_user_tokens(UserId, RequiredFilters, Table, AppCtx) ->
   Filters = lists:merge(RequiredFilters, UserFilters),
   resolve(Filters, Table, AppCtx).
 
+-spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
+resolve_all_codes(Cid, Table, AppCtx) ->
+  resolve([{<<"grant.client._id">>, Cid}], Table, AppCtx).
+
 -spec resolve(filters(), atom(), appctx()) -> list(token()).
 resolve(RequiredFilters, Table, #{pool := Pool}) ->
   ExpiryFilters = [{<<"grant.expiry_time">>, {'$gt', get_now()}}],
@@ -135,10 +149,6 @@ resolve(RequiredFilters, Table, #{pool := Pool}) ->
   Tokens = mc_cursor:rest(Cursor),
   mc_cursor:close(Cursor),
   Tokens.
-
--spec resolve_all_codes(clientid(), atom(), appctx()) -> list(token()).
-resolve_all_codes(ClientId, Table, AppCtx) ->
-  resolve([{<<"grant.client._id">>, ClientId}], Table, AppCtx).
 
 -spec get_now() -> non_neg_integer().
 get_now() ->
@@ -175,7 +185,7 @@ extract_refresh_tokens(Tokens) ->
 -spec extract_user_tokens_auth(binary(), list()) -> list().
 extract_user_tokens_auth(<<"_id">>, Tokens) ->
   [#{
-     <<"clientid">> => ClientId,
+     <<"clientid">> => Cid,
      <<"expiry_time">> => ExpiryTime,
      <<"scope">> => Scope,
      <<"converted">> => <<"false">>,
@@ -185,14 +195,14 @@ extract_user_tokens_auth(<<"_id">>, Tokens) ->
         <<"expiry_time">> := ExpiryTime,
         <<"scope">> := Scope,
         <<"client">> := #{
-          <<"_id">> := ClientId
+          <<"_id">> := Cid
         }
       },
       <<"_id">> := Token
     } <- Tokens];
 extract_user_tokens_auth(<<"grant.code">>, Tokens) ->
   [#{
-     <<"clientid">> => ClientId,
+     <<"clientid">> => Cid,
      <<"expiry_time">> => ExpiryTime,
      <<"scope">> => Scope,
      <<"converted">> => <<"true">>,
@@ -203,7 +213,7 @@ extract_user_tokens_auth(<<"grant.code">>, Tokens) ->
         <<"expiry_time">> := ExpiryTime,
         <<"scope">> := Scope,
         <<"client">> := #{
-          <<"_id">> := ClientId
+          <<"_id">> := Cid
         }
       }
     } <- Tokens].
