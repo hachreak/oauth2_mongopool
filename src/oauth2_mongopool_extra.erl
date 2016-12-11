@@ -159,12 +159,15 @@ get_now() ->
 extract_access_tokens(Rows) ->
   lists:map(fun(Row) ->
       #{<<"grant">> := GrantCtx, <<"_id">> := Token} = Row,
-      #{<<"expiry_time">> := ExpiryTime, <<"scope">> := Scope} = GrantCtx,
+      #{<<"expiry_time">> := ExpiryTime, <<"scope">> := Scope,
+        <<"resource_owner">> := ResourceOwner} = GrantCtx,
+      #{<<"_id">> := UserId} = ResourceOwner,
       oauth2_mongopool_utils:copy_if_exists(
         <<"refresh_token">>, <<"token_refresh">>, GrantCtx,
         #{<<"expiry_time">> => ExpiryTime,
           <<"scope">> => Scope,
-          <<"token_access">> => Token
+          <<"token_access">> => Token,
+          <<"userid">> => UserId
       })
     end, Rows).
 
