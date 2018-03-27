@@ -204,22 +204,27 @@ extract_user_tokens_auth(<<"_id">>, Tokens) ->
       <<"_id">> := Token
     } <- Tokens];
 extract_user_tokens_auth(<<"grant.code">>, Tokens) ->
-  [#{
-     <<"clientid">> => Cid,
-     <<"expiry_time">> => ExpiryTime,
-     <<"scope">> => Scope,
-     <<"converted">> => <<"true">>,
-     <<"token_auth">> => Token
-    } || #{
+  lists:map(
+    fun(#{
       <<"grant">> := #{
         <<"code">> := Token,
         <<"expiry_time">> := ExpiryTime,
-        <<"scope">> := Scope,
-        <<"client">> := #{
-          <<"_id">> := Cid
-        }
+        <<"scope">> := Scope
+      }=Grant
+    }) ->
+      ResOwner = get(<<"resource_owner">>, Grant, #{}),
+      ResBenefit = get(<<"resource_benefit">>, Grant, #{}),
+      Client = get(<<"client">>, Grant, #{}),
+      #{
+        <<"userid">> => get(<<"_id">>, ResOwner, undefined),
+        <<"benificiary">> => get(<<"_id">>, ResBenefit, undefined),
+        <<"clientid">> => get(<<"_id">>, Client, undefined),
+        <<"expiry_time">> => ExpiryTime,
+        <<"scope">> => Scope,
+        <<"converted">> => <<"true">>,
+        <<"token_auth">> => Token
       }
-    } <- Tokens].
+    end, Tokens).
 
 -spec extract_auth_codes(list()) -> list().
 extract_auth_codes(Tokens) ->
@@ -234,3 +239,6 @@ extract_auth_codes(Tokens) ->
       },
       <<"_id">> := Token
     } <- Tokens].
+
+get(_, undefined, _) -> undefined;
+get(Key, Map, Default) ->maps:get(Key, Map, Default).
