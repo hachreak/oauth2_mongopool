@@ -104,16 +104,25 @@ resolve_auth_codes(Cid, AppCtx) ->
   extract_auth_codes(resolve_all_codes(Cid, ?ACCESS_CODE_TABLE, AppCtx)).
 
 -spec resolve_access_tokens(
-        {cid, clientid(), fqscopes()} | {cid, clientid()} |
+        %{cid, clientid(), fqscopes()} |
+        {cid, clientid()} |
         {auth, binary(), token()}, appctx()) ->
     list(token()).
-resolve_access_tokens({cid, Cid, FQScopes}, AppCtx) ->
-  Scopes = oauth2_scope_strategy_fq:implode(FQScopes),
-  Filters = lists:map(fun(SingleScope) ->
-      RegEx = << <<"^">>/binary, SingleScope/binary, <<"$">>/binary >>,
-      {<<"grant.scope">>, {'$regex', RegEx}}
-    end, Scopes),
-  Query = [{<<"grant.client._id">>, Cid}, {'$or', Filters}],
+% resolve_access_tokens({cid, Cid, FQScopes}, AppCtx) ->
+%   Scopes = oauth2_scope_strategy_fq:implode(FQScopes),
+%   Filters = lists:map(fun(SingleScope) ->
+%       RegEx = << <<"^">>/binary, SingleScope/binary, <<"$">>/binary >>,
+%       {<<"grant.scope">>, {'$regex', RegEx}}
+%     end, Scopes),
+%   Query = [{<<"grant.client._id">>, Cid}, {'$or', Filters}],
+%   extract_access_tokens(resolve(Query, ?ACCESS_TOKEN_TABLE, AppCtx));
+resolve_access_tokens({owner, UserId}, AppCtx) ->
+  % get token where he is the resource owner or the resource beneficiary
+  Query = [{'$or', [
+            {<<"grant.resource_benefit._id">>, UserId},
+            {'$and', [{<<"grant.resource_benefit._id">>, undefined},
+                      {<<"grant.resource_owner._id">>, UserId}]}
+          ]}],
   extract_access_tokens(resolve(Query, ?ACCESS_TOKEN_TABLE, AppCtx));
 resolve_access_tokens({cid, Cid}, AppCtx) ->
   extract_access_tokens(
@@ -159,9 +168,12 @@ get_now() ->
 extract_access_tokens(Rows) ->
   lists:map(fun(Row) ->
       #{<<"grant">> := GrantCtx, <<"_id">> := Token} = Row,
-      #{<<"expiry_time">> := ExpiryTime, <<"scope">> := Scope,
-        <<"resource_owner">> := ResourceOwner} = GrantCtx,
-      #{<<"_id">> := UserId} = ResourceOwner,
+      #{<<"expiry_time">> := ExpiryTime, <<"scope">> := Scope} = GrantCtx,
+      User = case maps:get(<<"resource_benefit">>, GrantCtx, undefined) of
+        undefined -> maps:get(<<"resource_owner">>, GrantCtx);
+        RB -> RB
+      end,
+      #{<<"_id">> := UserId} = User,
       oauth2_mongopool_utils:copy_if_exists(
         <<"refresh_token">>, <<"token_refresh">>, GrantCtx,
         #{<<"expiry_time">> => ExpiryTime,
