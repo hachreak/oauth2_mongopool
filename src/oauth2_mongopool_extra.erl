@@ -116,14 +116,14 @@ resolve_auth_codes(Cid, AppCtx) ->
 %     end, Scopes),
 %   Query = [{<<"grant.client._id">>, Cid}, {'$or', Filters}],
 %   extract_access_tokens(resolve(Query, ?ACCESS_TOKEN_TABLE, AppCtx));
-resolve_access_tokens({owner, UserId}, AppCtx) ->
+resolve_access_tokens({owner, UserId, Limit}, AppCtx) ->
   % get token where he is the resource owner or the resource beneficiary
   Query = [{'$or', [
             {<<"grant.resource_benefit._id">>, UserId},
             {'$and', [{<<"grant.resource_benefit._id">>, undefined},
                       {<<"grant.resource_owner._id">>, UserId}]}
           ]}],
-  extract_access_tokens(resolve(Query, ?ACCESS_TOKEN_TABLE, AppCtx));
+  extract_access_tokens(resolve(Query, Limit, ?ACCESS_TOKEN_TABLE, AppCtx));
 resolve_access_tokens({cid, Cid}, AppCtx) ->
   extract_access_tokens(
     resolve_all_codes(Cid, ?ACCESS_TOKEN_TABLE, AppCtx));
@@ -150,12 +150,17 @@ resolve_user_tokens(UserId, RequiredFilters, Table, AppCtx) ->
 resolve_all_codes(Cid, Table, AppCtx) ->
   resolve([{<<"grant.client._id">>, Cid}], Table, AppCtx).
 
--spec resolve(filters(), atom(), appctx()) -> list(token()).
-resolve(RequiredFilters, Table, #{pool := Pool}) ->
+resolve(RequiredFilters, Table, AppCtx) ->
+  resolve(RequiredFilters, infinity, Table, AppCtx).
+
+-spec resolve(filters(), integer()|infinity, atom(), appctx()) -> list(token()).
+resolve(RequiredFilters, 0, Table, AppCtx) ->
+  resolve(RequiredFilters, infinity, Table, AppCtx);
+resolve(RequiredFilters, Limit, Table, #{pool := Pool}) ->
   ExpiryFilters = [{<<"grant.expiry_time">>, {'$gt', get_now()}}],
   Filters = lists:merge(RequiredFilters, ExpiryFilters),
   Cursor = mongopool_app:find(Pool, Table, {'$query', {'$and', Filters}}),
-  Tokens = mc_cursor:rest(Cursor),
+  Tokens = mc_cursor:take(Cursor, Limit),
   mc_cursor:close(Cursor),
   Tokens.
 
