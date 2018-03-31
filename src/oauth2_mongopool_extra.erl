@@ -86,7 +86,7 @@ resolve_user_auth_codes({converted, UserId}, AppCtx) ->
   extract_user_tokens_auth(
     <<"grant.code">>,
     resolve_user_tokens(
-      UserId, [{<<"grant.code">>, {'$exists', true}}],
+      UserId, [{<<"grant.code">>, {'$ne', undefined}}],
       ?ACCESS_TOKEN_TABLE, AppCtx));
 resolve_user_auth_codes({all, UserId}, AppCtx) ->
   lists:merge(
